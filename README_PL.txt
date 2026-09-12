@@ -1,7 +1,15 @@
-Firefox ZIP Quick Extract v0.1.9
+Firefox ZIP Quick Extract v0.1.10 - lokalna wersja testowa
 ================================
 
 Pakiet rozbudowuje interfejs Firefoxa na Windows.
+
+NOWOSC v0.1.10: synchronizacja lokalizacji po przeniesieniu pliku przez
+Download Router. Przeczytaj DOWNLOAD-LOCATION-SYNC.md oraz VALIDATION.md.
+Zamknij Firefox. Uruchom INSTALL.bat, a nastepnie Update-DownloadRouter.ps1
+jako dotychczasowy uzytkownik Windows. Ten drugi skrypt tworzy kopie hosta.
+Zaladuj companion\Download-Router-1.1.6.xpi przez about:debugging.
+Rozszerzenie jest niepodpisane, tymczasowe; znika po restarcie Firefoxa.
+Nie opublikowano tej wersji na GitHub.
 
 POPRAWKA v0.1.9
 --------------

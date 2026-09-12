@@ -2,7 +2,9 @@
 
 Modyfikacja interfejsu Mozilla Firefox dla Windows, która usprawnia obsługę pobranych plików i dodaje izolowane, ukrywane okno przeglądarki.
 
-Aktualna wersja: **v0.1.9**
+Wersja lokalna do testów: **v0.1.10** (nieopublikowana).
+
+Nowość: integracja z Download Router — po przeniesieniu pliku aktualizuje jego lokalizację w natywnej liście pobrań Firefoxa oraz historii. Przyciski otwierania, pokazywania w folderze, rozpakowania ZIP i usuwania korzystają z tej samej docelowej ścieżki. Szczegóły i ograniczenia: [DOWNLOAD-LOCATION-SYNC.md](DOWNLOAD-LOCATION-SYNC.md).
 
 W v0.1.9 folder wynikowy otwiera powłoka Windows bezpośrednio po rozpakowaniu, przed kopiowaniem do schowka.
 

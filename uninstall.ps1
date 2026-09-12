@@ -1,3 +1,4 @@
+param([string]$FirefoxDirectory, [switch]$NonInteractive)
 $ErrorActionPreference = 'Stop'
 
 function Find-FirefoxDir {
@@ -11,10 +12,11 @@ function Find-FirefoxDir {
     return $null
 }
 
-$firefoxDir = Find-FirefoxDir
+$firefoxDir = if ($FirefoxDirectory) { [IO.Path]::GetFullPath($FirefoxDirectory) } else { Find-FirefoxDir }
 if (-not $firefoxDir) { throw 'Nie znaleziono instalacji Firefox.' }
 
 $paths = @(
+    (Join-Path $firefoxDir 'download-location-sync.sys.mjs'),
     (Join-Path $firefoxDir 'defaults\pref\zipquickextract-autoconfig.js'),
     (Join-Path $firefoxDir 'zipquickextract.cfg'),
     (Join-Path $firefoxDir 'zip_quick_extract.ps1'),
@@ -31,4 +33,4 @@ Write-Host 'Firefox ZIP Quick Extract usuniety.' -ForegroundColor Green
 Write-Host 'Dane tajnego profilu pozostawiono w %LOCALAPPDATA%\Mozilla\Firefox\FirefoxSecretProfile.' -ForegroundColor DarkGray
 Write-Host 'Uruchom ponownie Firefox.' -ForegroundColor Yellow
 Write-Host ''
-Read-Host 'Nacisnij Enter, aby zamknac deinstalator'
+if (!$NonInteractive) { Read-Host 'Nacisnij Enter, aby zamknac deinstalator' }
