@@ -35,6 +35,31 @@ static class FirefoxDownloadHost {
         throw new IOException("Unable to select a unique destination filename.");
     }
 
+    static string OriginalName(IDictionary<string,object> message, string source) {
+        string fallback=Path.GetFileName(source);
+        if(message.ContainsKey("isPrivate") && Convert.ToBoolean(message["isPrivate"])) return fallback;
+        if(!message.ContainsKey("startTime") || !message.ContainsKey("sourceUrl")) return fallback;
+        string metadata=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"sync-requests","original-names.json");
+        for(int attempt=0;attempt<6;attempt++) {
+            try {
+                if(File.Exists(metadata) && new FileInfo(metadata).Length<2097152) {
+                    var records=new JavaScriptSerializer().Deserialize<List<Dictionary<string,object>>>(File.ReadAllText(metadata));
+                    foreach(var record in records) {
+                        if(!String.Equals(Convert.ToString(record["source"]),source,StringComparison.OrdinalIgnoreCase) ||
+                           Convert.ToDouble(record["startTime"])!=Convert.ToDouble(message["startTime"]) ||
+                           Convert.ToString(record["sourceUrl"])!=Convert.ToString(message["sourceUrl"])) continue;
+                        string name=Convert.ToString(record["name"]);
+                        if(!String.IsNullOrWhiteSpace(name) && name==Path.GetFileName(name) &&
+                           name.IndexOfAny(Path.GetInvalidFileNameChars())<0 && !name.EndsWith(".") && !name.EndsWith(" ") &&
+                           !ReservedNames.Contains(Path.GetFileNameWithoutExtension(name))) return name;
+                    }
+                }
+            } catch { /* Missing or stale metadata must never prevent routing. */ }
+            if(attempt<5) Thread.Sleep(100);
+        }
+        return fallback;
+    }
+
     static string ConfiguredTemp() {
         string settings=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"folders.xml");
         string temp=(string)XDocument.Load(settings).Root.Element("Temp");
@@ -61,7 +86,7 @@ static class FirefoxDownloadHost {
         Directory.CreateDirectory(directory);
         string sourceDirectory=Path.GetFullPath(Path.GetDirectoryName(source)).TrimEnd(Path.DirectorySeparatorChar);
         if(String.Equals(sourceDirectory,directory.TrimEnd(Path.DirectorySeparatorChar),StringComparison.OrdinalIgnoreCase)) return source;
-        string destination=UniquePath(directory,Path.GetFileName(source));
+        string destination=UniquePath(directory,OriginalName(message,source));
         if(String.Equals(Path.GetPathRoot(source),Path.GetPathRoot(destination),StringComparison.OrdinalIgnoreCase)) {
             File.Move(source,destination);
         } else {
@@ -162,6 +187,8 @@ static class FirefoxDownloadHost {
                 response=new { ok=true, folder=ChooseFolder(message) };
             else if(String.Equals(action,"reveal",StringComparison.OrdinalIgnoreCase))
                 response=new { ok=true, path=Reveal(message) };
+            else if(String.Equals(action,"originalName",StringComparison.OrdinalIgnoreCase))
+                response=new { ok=true, name=OriginalName(message,Convert.ToString(message["source"])) };
             else if(String.Equals(action,"move",StringComparison.OrdinalIgnoreCase))
                 response=new { ok=true, destination=Move(message) };
             else throw new IOException("Unknown native host action.");

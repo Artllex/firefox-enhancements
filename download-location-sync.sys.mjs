@@ -31,10 +31,51 @@ export async function synchronize(request) {
 }
 
 let timer = null;
+let namesStarted = false;
+// Capture the sanitized name before Firefox resolves collisions in Downloads.
+// Keep private/unmatched captures in memory only; persist public download identity.
+export function captureOriginalNames(queue) {
+  if (namesStarted) return;
+  const { DownloadPaths } = ChromeUtils.importESModule("resource://gre/modules/DownloadPaths.sys.mjs");
+  const original = DownloadPaths.createNiceUniqueFile;
+  const captures = new Map();
+  const records = [];
+  let writes = Promise.resolve();
+  DownloadPaths.createNiceUniqueFile = function(template) {
+    const name = template.leafName;
+    const file = original.apply(this, arguments);
+    try {
+      captures.set(file.path.toLowerCase(), { name, at: Date.now() });
+      for (const [key, value] of captures) {
+        if (Date.now() - value.at > 60000 || captures.size > 512) captures.delete(key);
+      }
+    } catch (error) { console.error(error); }
+    return file;
+  };
+  namesStarted = true;
+  Downloads.getList(Downloads.PUBLIC).then(list => list.addView({
+    onDownloadAdded(download) {
+      const key = download.target.path.toLowerCase();
+      const captured = captures.get(key);
+      if (!captured || download.source.isPrivate || Math.abs(Number(download.startTime) - captured.at) > 60000) return;
+      captures.delete(key);
+      records.push({ source: download.target.path, startTime: Number(download.startTime), sourceUrl: download.source.url, name: captured.name });
+      if (records.length > 512) records.shift();
+      const snapshot = records.slice();
+      writes = writes.catch(() => {}).then(async () => {
+        await IOUtils.makeDirectory(queue, {createAncestors: true});
+        await IOUtils.writeJSON(PathUtils.join(queue, "original-names.json"), snapshot, {tmpPath: PathUtils.join(queue, "original-names.tmp")});
+      });
+      writes.catch(console.error);
+    }
+  })).catch(console.error);
+}
+
 export function start() {
   if (timer) return;
   const local = Cc["@mozilla.org/process/environment;1"].getService(Ci.nsIEnvironment).get("LOCALAPPDATA");
   const queue = PathUtils.join(local, "Programs", "ChatGPTFolderLauncher", "sync-requests");
+  try { captureOriginalNames(queue); } catch (error) { console.error(error); }
   let busy = false;
   const attempted = new Map();
   async function poll() {

@@ -20,3 +20,9 @@ $RECYCLE.BIN/
 # Locally generated release packages
 /dist/
 *.zip
+/companion/
+/native-host/*.exe
+/Update-DownloadRouter.ps1
+/FILENAME-RULES.md
+/*Setup*.exe
+/support-test-*/

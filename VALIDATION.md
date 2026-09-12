@@ -1,5 +1,7 @@
 # Local validation — 2026-09-12
 
+v0.1.11: isolated Firefox test confirmed capture of `Mario (Europe) (En,Fr,De).zip` while Firefox produced `Mario (Europe) (En,Fr,De)(1).zip`. Native-host tests passed for restoring an original name, a destination collision and preserving a literal `(1)` suffix. Live romsfun.com download with this version has not yet been tested.
+
 - PASS: native relocation module in an isolated copy of Firefox, separate profile, real Downloads/DownloadHistory APIs; target changed, change notification emitted, target exists.
 - PASS: restart of that test profile retained the destination in download history.
 - PASS: eight module checks (relocation, retry, source present, size mismatch, private record, ambiguity, wrong URL, relative path).

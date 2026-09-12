@@ -1,4 +1,4 @@
-Firefox ZIP Quick Extract v0.1.10 - lokalna wersja testowa
+Firefox ZIP Quick Extract v0.1.11 - lokalna wersja testowa
 ================================
 
 Pakiet rozbudowuje interfejs Firefoxa na Windows.

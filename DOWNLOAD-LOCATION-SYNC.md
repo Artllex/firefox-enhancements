@@ -1,4 +1,10 @@
-# Download location synchronization — v0.1.10 local preview
+# Download location synchronization — v0.1.11 local preview
+
+## Original filenames / oryginalne nazwy
+
+The module captures the sanitized name before Firefox's createNiceUniqueFile collision handling. Public download identities (path, URL and start time) associate that name with the native host. Target-directory collisions are resolved without overwriting. Literal numeric suffixes are preserved. Missing metadata, unsupported download paths and private downloads keep Firefox's existing filename; no suffix guessing is performed. The in-memory capture is bounded; the last 512 public identities are persisted in original-names.json in the local sync queue. These include download URLs and paths and are not transmitted over the network. Subsequent sessions replace this metadata as new downloads arrive.
+
+Aktualizacja: zamknij Firefox, uruchom INSTALL.bat i Update-DownloadRouter.ps1 z nowego pakietu. Wersja rozszerzenia pozostaje 1.1.6. Zmiana dotyczy nowych pobrań po restarcie; nie zmienia wcześniejszych plików. Gdy oryginalna nazwa nie została przechwycona, program zachowuje nazwę Firefoxa.
 
 ## PL
 
