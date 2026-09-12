@@ -1,0 +1,22 @@
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Editors and local tooling
+.idea/
+.vscode/
+*.user
+*.suo
+*.swp
+*~
+
+# Temporary files and logs
+*.bak
+*.log
+*.tmp
+*.temp
+
+# Locally generated release packages
+/dist/
+*.zip
