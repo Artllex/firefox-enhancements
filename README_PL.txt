@@ -1,7 +1,17 @@
-Firefox ZIP Quick Extract v0.1.7
+Firefox ZIP Quick Extract v0.1.9
 ================================
 
 Pakiet rozbudowuje interfejs Firefoxa na Windows.
+
+POPRAWKA v0.1.9
+--------------
+Folder wynikowy otwiera powloka Windows bezposrednio po rozpakowaniu,
+przed kopiowaniem do schowka. Zachowano ikone otwartego pudelka.
+
+POPRAWKA v0.1.8
+--------------
+Ikona rozpakowywania to teraz biale otwarte pudelko wedlug wzoru uzytkownika.
+Poprzednia paczka v0.1.7 omylkowo zawierala ikone strzalki.
 
 FUNKCJE
 -------

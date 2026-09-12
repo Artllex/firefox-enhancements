@@ -2,7 +2,11 @@
 
 Modyfikacja interfejsu Mozilla Firefox dla Windows, która usprawnia obsługę pobranych plików i dodaje izolowane, ukrywane okno przeglądarki.
 
-Aktualna wersja: **v0.1.7**
+Aktualna wersja: **v0.1.9**
+
+W v0.1.9 folder wynikowy otwiera powłoka Windows bezpośrednio po rozpakowaniu, przed kopiowaniem do schowka.
+
+W v0.1.8 zastąpiono omyłkowo pozostawioną strzałkę białą ikoną otwartego pudełka zgodną z dostarczonym wzorem.
 
 ## Funkcje
 
@@ -25,7 +29,7 @@ Projekt korzysta z mechanizmu Firefox AutoConfig i instaluje pliki w katalogu pr
 
 ## Instalacja
 
-1. Pobierz archiwum `firefox_zip_quick_extract_v0.1.7.zip` z sekcji Releases.
+1. Pobierz archiwum `firefox_zip_quick_extract_v0.1.9.zip` z sekcji Releases.
 2. Rozpakuj je w dowolnym katalogu.
 3. Zamknij wszystkie okna Firefoxa.
 4. Uruchom `INSTALL.bat` i zaakceptuj monit UAC.

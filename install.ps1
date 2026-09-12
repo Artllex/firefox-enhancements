@@ -104,7 +104,7 @@ Copy-Item -LiteralPath (Join-Path $scriptDir 'firefox_secret_window.ps1') -Desti
 Copy-Item -LiteralPath (Join-Path $scriptDir 'firefox_secret_window.vbs') -Destination $ourSecretLauncher -Force
 
 Write-Host ''
-Write-Host 'Firefox ZIP Quick Extract v0.1.7 zainstalowany.' -ForegroundColor Green
+Write-Host 'Firefox ZIP Quick Extract v0.1.9 zainstalowany.' -ForegroundColor Green
 Write-Host "Firefox: $firefoxDir"
 if ($hadOld) {
     Write-Host "Kopia poprzedniej wersji: $backupDir" -ForegroundColor DarkGray

@@ -22,6 +22,16 @@ try {
 
     Expand-Archive -LiteralPath $archiveFull -DestinationPath $destination -Force
 
+    # Ask the desktop shell to open the extracted folder. This is independent
+    # of the hidden PowerShell launcher and runs even if clipboard access fails.
+    $desktopShell = New-Object -ComObject Shell.Application
+    try {
+        $desktopShell.Open($destination)
+    }
+    finally {
+        [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($desktopShell)
+    }
+
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Collections
 
@@ -46,16 +56,6 @@ try {
 
     if (-not $clipboardSet) {
         throw 'Could not place extracted folder on the clipboard.'
-    }
-
-    # Open the extracted folder in a new Explorer window. /n requests a new window.
-    $explorer = Join-Path $env:WINDIR 'explorer.exe'
-    if (Test-Path -LiteralPath $explorer) {
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $explorer
-        $psi.Arguments = '/n,"' + $destination.Replace('"', '\"') + '"'
-        $psi.UseShellExecute = $true
-        [void][System.Diagnostics.Process]::Start($psi)
     }
 
     exit 0
