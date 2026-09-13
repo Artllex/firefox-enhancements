@@ -1,25 +1,16 @@
-# Firefox Enhancements 0.1.16 — local coexistence candidate
+# Firefox Enhancements 0.1.18
 
-- Works with DownloadLens Support 1.2.5 using cooperative AutoConfig v1.
-- Each active configuration loads its peer once through a local resource URI; disabled peers are not loaded.
-- FE uninstall checks file ownership and preserves DownloadLens files and modified user files.
-- Install/update/remove tested in both orders. Real isolated Firefox 155.0.1 loaded both configurations.
-- Full acceptance of hotkey, ZIP and download routing on the user's installed browser remains to be tested.
-- Close Firefox, update DownloadLens Support to 1.2.5, then install FE 0.1.16. Do not re-enable old disabled loaders.
+![Firefox Enhancements](https://raw.githubusercontent.com/Artllex/firefox-enhancements/v0.1.18/assets/firefox-enhancements-icon.png)
 
-Tests: powershell.exe -File tests/coexistence.ps1 -DownloadLensRoot <downloadlens-repo>; node tests/cooperative-loader.cjs <downloadlens-repo>.
+- Enlarged transparent icon with minimal margins and no clipping, used in the installer and repository.
+- Shared AutoConfig dispatcher: FE works alone or with DownloadLens Support 1.2.6, in either installation order.
+- Recognized older configurations are migrated with backups; disabled modules remain disabled and modified files are protected.
+- Independent removal and transactional rollback preserve the other product.
 
-## Historical 0.1.15 notes (superseded)
+Close Firefox before installation. Administrator confirmation is required for Firefox integration. DownloadLens is optional and not bundled.
 
-- Uses the approved Firefox Enhancements fox-and-sparkle icon in the Windows installer.
-- Renames the project and repository to Firefox Enhancements.
-- Keeps history menu shortcuts and the separate Ctrl+Alt+Space profile.
-- Download features are no longer included in this installer; they belong to DownloadLens.
+Assets include the installer, source archive, PNG, ICO and SHA256 checksums covering all other attached assets.
 
-Windows only. Close Firefox before installation. Privileged AutoConfig requires UAC approval.
-Another active AutoConfig (including DownloadLens Support) blocks installation. Do not overwrite it; co-installation is not currently supported.
-The separate profile is not encrypted. Uninstall using uninstall.ps1 as administrator; profile data is retained.
+Automated lifecycle, migration, rollback and embedded icon tests passed. Interactive acceptance on the user's normal Firefox profile remains pending.
 
-MIT license for code. Firefox/Mozilla marks belong to their respective owners; this is an independent, unofficial project. The icon is a generated interpretation based on the supplied reference, not an official Mozilla endorsement.
-
-The installer build was verified; it was not installed over the active DownloadLens integration.
+Independent, unofficial MIT-licensed tool. Firefox trademarks belong to their respective owners. Privileged AutoConfig is not a Mozilla-signed WebExtension.

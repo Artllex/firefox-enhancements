@@ -1,4 +1,4 @@
-#define Version "0.1.16"
+#define Version "0.1.18"
 [Setup]
 AppId=Artllex.FirefoxEnhancements
 AppName=Firefox Enhancements
@@ -31,6 +31,7 @@ Source: "zipquickextract-autoconfig.js"; DestDir: "{app}"; Flags: ignoreversion
 Source: "firefox_secret_window.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "firefox_secret_window.vbs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "install.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "Shared-AutoConfig.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Apply-Update.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "INSTALLER-README.txt"; DestDir: "{app}"; Flags: ignoreversion

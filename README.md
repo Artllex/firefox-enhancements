@@ -1,23 +1,25 @@
 # Firefox Enhancements
 
+![Firefox Enhancements](assets/firefox-enhancements-icon.png)
+
 Windows Firefox enhancements by Arkadiusz Pajda (Artllex), 2026. MIT.
 
 Repository: https://github.com/Artllex/firefox-enhancements
 
-## Current scope (0.1.16)
+## Current scope (0.1.18)
 
 - Move Restore Previous Session and Clear Recent History directly below History in the main menu.
 - Separate Firefox profile toggled with Ctrl+Alt+Space.
 - Hide its windows and suspend its processes/media while hidden.
 - Disable Firefox Sync in that profile. It is isolated, not encrypted.
 
-Download routing, ZIP extraction, deletion controls and download-history synchronization belong to [DownloadLens](https://github.com/Artllex/download-router), not the current FE installer.
+Download routing, ZIP extraction, deletion controls and download-history synchronization belong to [DownloadLens](https://github.com/Artllex/DownloadLens), not the current FE installer.
 
 ## Installation
 
-Build with Build.ps1 (Inno Setup 7 on PATH), then run Firefox-Enhancements-Setup-0.1.16.exe with Firefox closed. AutoConfig installation requires UAC approval.
+Download Firefox-Enhancements-Setup-0.1.18.exe from the latest release and run it with Firefox closed. AutoConfig installation requires UAC approval. Build from source with Build.ps1 (Inno Setup 7 on PATH).
 
-FE is privileged AutoConfig, not a WebExtension. FE 0.1.16 supports coexistence with DownloadLens Support 1.2.5 or later. Update both components before enabling both. Each configuration loads the other once only if its preference file is active. Either product can be removed without removing the other's files. Unknown or older incompatible AutoConfig configurations remain blocked. Never re-enable old disabled loaders.
+FE is privileged AutoConfig, not a WebExtension. FE 0.1.18 works alone or with DownloadLens Support 1.2.6 in either order, using one shared dispatcher. Recognized older installations are migrated with backups. Disabled modules are not reactivated; unknown or modified configurations remain protected.
 
 Use uninstall.ps1 as administrator to remove integration. The separate profile data is retained. See INSTALLER-README.txt.
 
@@ -30,3 +32,16 @@ Legacy download source files remain for reference but are not packaged or loaded
 ## License
 
 MIT. See LICENSE.
+# Update 0.1.18: shared AutoConfig
+
+Firefox Enhancements and DownloadLens Support 1.2.6 use one `artllex.cfg`
+dispatcher. Each package registers only its own module; neither requires the
+other. Both installation orders and independent removal are supported. The last
+removal deletes the dispatcher. Existing recognized configurations are migrated
+with backups and ownership checks; unknown or modified files are preserved.
+The common protocol implementation is shipped in both standalone installers and
+tested byte-for-byte for equality. Download and FE feature code remain separate.
+
+Automated tests cover clean installs, both orders, upgrades from a copy of the
+installed legacy configuration, repeated updates and independent uninstalls.
+Full interactive Firefox acceptance remains a separate test.

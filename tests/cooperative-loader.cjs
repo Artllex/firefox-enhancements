@@ -1,7 +1,7 @@
 const fs=require('fs'),vm=require('vm'),path=require('path'),assert=require('assert');
 const files={
  'zipquickextract.cfg':fs.readFileSync(path.join(__dirname,'../zipquickextract.cfg'),'utf8'),
- 'download-router-support.cfg':fs.readFileSync(path.join(process.argv[2], 'support/firefox/download-router-support.cfg'),'utf8')
+ 'download-router-support.cfg':fs.readFileSync(process.argv[3] || path.join(process.argv[2], 'support/firefox/download-router-support.cfg'),'utf8')
 };
 for(const first of Object.keys(files))for(const both of [true,false]){
  const loaded=[],observers=[],errors=[];

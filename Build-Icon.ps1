@@ -1,6 +1,6 @@
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Drawing
-$source=[Drawing.Bitmap]::new((Join-Path $PSScriptRoot 'assets/firefox-enhancements-icon-v2.png'))
+$source=[Drawing.Bitmap]::new((Join-Path $PSScriptRoot 'assets/firefox-enhancements-icon.png'))
 $sizes=@(16,24,32,48,64,128,256)
 $frames=@()
 try {
