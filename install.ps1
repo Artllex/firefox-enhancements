@@ -48,6 +48,7 @@ function Write-Utf8NoBomLf([string]$Source, [string]$Destination) {
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (!$IsolatedTest -and (Get-Process firefox -ErrorAction SilentlyContinue)) {throw 'Close all Firefox windows before changing integration.'}
 $firefoxDir = if ($FirefoxDirectory) { [IO.Path]::GetFullPath($FirefoxDirectory) } else { Find-FirefoxDir }
 if (-not $firefoxDir) {
     throw 'Nie znaleziono instalacji Firefox.'
@@ -76,6 +77,14 @@ Get-ChildItem -LiteralPath $prefDir -Filter '*.js' -File -ErrorAction SilentlyCo
     if ($_.FullName -ne $ourPref) {
         try {
             if (Select-String -LiteralPath $_.FullName -Pattern 'general\.config\.filename' -Quiet) {
+                if ($_.Name -eq 'download-router-support.js') {
+                    $peerCfg = Join-Path $firefoxDir 'download-router-support.cfg'
+                    $peerText = [IO.File]::ReadAllText($_.FullName)
+                    $expected = "// Download Router Support - AutoConfig preferences"
+                    if ((Test-Path -LiteralPath $peerCfg) -and
+                        ([IO.File]::ReadAllText($peerCfg).Contains('// Artllex cooperative AutoConfig v1')) -and
+                        $peerText.Contains('pref("general.config.filename", "download-router-support.cfg");')) { return }
+                }
                 $existingAutoConfig += $_.FullName
             }
         } catch {}
@@ -84,10 +93,11 @@ Get-ChildItem -LiteralPath $prefDir -Filter '*.js' -File -ErrorAction SilentlyCo
 if ($existingAutoConfig.Count -gt 0) {
     throw "Wykryto inna konfiguracje AutoConfig:`r`n$($existingAutoConfig -join "`r`n")`r`n`r`nInstalator niczego nie nadpisal."
 }
+if (!(Test-Path -LiteralPath (Join-Path $firefoxDir 'firefox.exe'))) {throw 'Firefox installation not found.'}
 if (!$IsolatedTest) { Stop-LegacySecretHelpers }
 
 # Make a small backup if v0.1.0 (or an earlier revision) is already installed.
-$backupDir = Join-Path $env:TEMP ('FirefoxZipQuickExtract_backup_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
+$backupDir = Join-Path $env:TEMP ('FirefoxZipQuickExtract_backup_' + [guid]::NewGuid().ToString('N'))
 $hadOld = $false
 foreach ($path in @($ourPref, $ourCfg, $ourHelper, $ourLauncher, $ourSecretHelper, $ourSecretLauncher, $ourSync)) {
     if (Test-Path -LiteralPath $path) {
@@ -103,9 +113,14 @@ Write-Utf8NoBomLf (Join-Path $scriptDir 'zipquickextract-autoconfig.js') $ourPre
 Write-Utf8NoBomLf (Join-Path $scriptDir 'zipquickextract.cfg') $ourCfg
 Copy-Item -LiteralPath (Join-Path $scriptDir 'firefox_secret_window.ps1') -Destination $ourSecretHelper -Force
 Copy-Item -LiteralPath (Join-Path $scriptDir 'firefox_secret_window.vbs') -Destination $ourSecretLauncher -Force
+$hashes=@{}
+foreach($path in @($ourPref,$ourCfg,$ourSecretHelper,$ourSecretLauncher)) {
+    $hashes[[IO.Path]::GetFileName($path)]=(Get-FileHash -LiteralPath $path).Hash
+}
+@{owner='FirefoxEnhancements';hashes=$hashes} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $firefoxDir 'firefox-enhancements-state.json') -Encoding UTF8
 
 Write-Host ''
-Write-Host 'Firefox Enhancements v0.1.15 zainstalowany.' -ForegroundColor Green
+Write-Host 'Firefox Enhancements v0.1.16 zainstalowany.' -ForegroundColor Green
 Write-Host "Firefox: $firefoxDir"
 if ($hadOld) {
     Write-Host "Kopia poprzedniej wersji: $backupDir" -ForegroundColor DarkGray

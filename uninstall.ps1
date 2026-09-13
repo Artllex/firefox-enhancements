@@ -1,4 +1,4 @@
-param([string]$FirefoxDirectory, [switch]$NonInteractive)
+param([string]$FirefoxDirectory, [switch]$NonInteractive, [switch]$IsolatedTest)
 $ErrorActionPreference = 'Stop'
 
 function Find-FirefoxDir {
@@ -16,19 +16,28 @@ $firefoxDir = if ($FirefoxDirectory) { [IO.Path]::GetFullPath($FirefoxDirectory)
 if (-not $firefoxDir) { throw 'Nie znaleziono instalacji Firefox.' }
 
 $paths = @(
-    (Join-Path $firefoxDir 'download-location-sync.sys.mjs'),
     (Join-Path $firefoxDir 'defaults\pref\zipquickextract-autoconfig.js'),
     (Join-Path $firefoxDir 'zipquickextract.cfg'),
-    (Join-Path $firefoxDir 'zip_quick_extract.ps1'),
-    (Join-Path $firefoxDir 'zip_quick_extract.vbs'),
     (Join-Path $firefoxDir 'firefox_secret_window.ps1'),
     (Join-Path $firefoxDir 'firefox_secret_window.vbs')
 )
+if (!$IsolatedTest -and (Get-Process firefox -ErrorAction SilentlyContinue)) {throw 'Close all Firefox windows before changing integration.'}
+$statePath=Join-Path $firefoxDir 'firefox-enhancements-state.json'
+if (!(Test-Path -LiteralPath $statePath)) {throw 'No ownership record. Legacy files preserved; install current FE first.'}
+$state=Get-Content -Raw -LiteralPath $statePath | ConvertFrom-Json
+if($state.owner -ne 'FirefoxEnhancements') {throw 'Unknown ownership'}
+foreach($path in $paths) {
+    if(Test-Path -LiteralPath $path) {
+        $expected=$state.hashes.([IO.Path]::GetFileName($path))
+        if(!$expected -or (Get-FileHash -LiteralPath $path).Hash -ne $expected) {throw "Modified file preserved: $path"}
+    }
+}
 foreach ($path in $paths) {
     if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
 }
 
 Write-Host ''
+Remove-Item -LiteralPath $statePath
 Write-Host 'Firefox Enhancements usuniety.' -ForegroundColor Green
 Write-Host 'Dane tajnego profilu pozostawiono w %LOCALAPPDATA%\Mozilla\Firefox\FirefoxSecretProfile.' -ForegroundColor DarkGray
 Write-Host 'Uruchom ponownie Firefox.' -ForegroundColor Yellow

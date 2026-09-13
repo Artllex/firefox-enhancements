@@ -4,7 +4,7 @@ Windows Firefox enhancements by Arkadiusz Pajda (Artllex), 2026. MIT.
 
 Repository: https://github.com/Artllex/firefox-enhancements
 
-## Current scope (0.1.15)
+## Current scope (0.1.16)
 
 - Move Restore Previous Session and Clear Recent History directly below History in the main menu.
 - Separate Firefox profile toggled with Ctrl+Alt+Space.
@@ -15,9 +15,9 @@ Download routing, ZIP extraction, deletion controls and download-history synchro
 
 ## Installation
 
-Build with Build.ps1 (Inno Setup 7 on PATH), then run Firefox-Enhancements-Setup-0.1.15.exe with Firefox closed. AutoConfig installation requires UAC approval.
+Build with Build.ps1 (Inno Setup 7 on PATH), then run Firefox-Enhancements-Setup-0.1.16.exe with Firefox closed. AutoConfig installation requires UAC approval.
 
-FE is privileged AutoConfig, not a WebExtension. Another active AutoConfig configuration (including DownloadLens Support) blocks installation. Do not overwrite it. Simultaneous installation is not yet supported by these separate loaders.
+FE is privileged AutoConfig, not a WebExtension. FE 0.1.16 supports coexistence with DownloadLens Support 1.2.5 or later. Update both components before enabling both. Each configuration loads the other once only if its preference file is active. Either product can be removed without removing the other's files. Unknown or older incompatible AutoConfig configurations remain blocked. Never re-enable old disabled loaders.
 
 Use uninstall.ps1 as administrator to remove integration. The separate profile data is retained. See INSTALLER-README.txt.
 

@@ -26,3 +26,5 @@ $RECYCLE.BIN/
 /FILENAME-RULES.md
 /*Setup*.exe
 /support-test-*/
+/tests/coexist-tests-*/
+/assets/firefox-enhancements-icon-proposal.png
