@@ -21,6 +21,7 @@ SolidCompression=yes
 CloseApplications=no
 RestartApplications=no
 LicenseFile=LICENSE
+SetupIconFile=assets\Firefox-Enhancements.ico
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
