@@ -29,7 +29,7 @@ foreach ($path in $paths) {
 }
 
 Write-Host ''
-Write-Host 'Firefox ZIP Quick Extract usuniety.' -ForegroundColor Green
+Write-Host 'Firefox Enhancements usuniety.' -ForegroundColor Green
 Write-Host 'Dane tajnego profilu pozostawiono w %LOCALAPPDATA%\Mozilla\Firefox\FirefoxSecretProfile.' -ForegroundColor DarkGray
 Write-Host 'Uruchom ponownie Firefox.' -ForegroundColor Yellow
 Write-Host ''

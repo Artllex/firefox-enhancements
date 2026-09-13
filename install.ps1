@@ -101,14 +101,11 @@ foreach ($path in @($ourPref, $ourCfg, $ourHelper, $ourLauncher, $ourSecretHelpe
 
 Write-Utf8NoBomLf (Join-Path $scriptDir 'zipquickextract-autoconfig.js') $ourPref
 Write-Utf8NoBomLf (Join-Path $scriptDir 'zipquickextract.cfg') $ourCfg
-Write-Utf8NoBomLf (Join-Path $scriptDir 'download-location-sync.sys.mjs') $ourSync
-Copy-Item -LiteralPath (Join-Path $scriptDir 'zip_quick_extract.ps1') -Destination $ourHelper -Force
-Copy-Item -LiteralPath (Join-Path $scriptDir 'zip_quick_extract.vbs') -Destination $ourLauncher -Force
 Copy-Item -LiteralPath (Join-Path $scriptDir 'firefox_secret_window.ps1') -Destination $ourSecretHelper -Force
 Copy-Item -LiteralPath (Join-Path $scriptDir 'firefox_secret_window.vbs') -Destination $ourSecretLauncher -Force
 
 Write-Host ''
-Write-Host 'Firefox ZIP Quick Extract v0.1.13 zainstalowany.' -ForegroundColor Green
+Write-Host 'Firefox Enhancements v0.1.15 zainstalowany.' -ForegroundColor Green
 Write-Host "Firefox: $firefoxDir"
 if ($hadOld) {
     Write-Host "Kopia poprzedniej wersji: $backupDir" -ForegroundColor DarkGray
