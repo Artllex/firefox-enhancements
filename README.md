@@ -6,20 +6,23 @@ Windows Firefox enhancements by Arkadiusz Pajda (Artllex), 2026. MIT.
 
 Repository: https://github.com/Artllex/firefox-enhancements
 
-## Current scope (0.1.18)
+## Current scope (0.1.41)
 
 - Move Restore Previous Session and Clear Recent History directly below History in the main menu.
 - Separate Firefox profile toggled with Ctrl+Alt+Space.
 - Hide its windows and suspend its processes/media while hidden.
 - Disable Firefox Sync in that profile. It is isolated, not encrypted.
+- Firefox's native Ctrl+Shift+S shortcut starts the screenshot tool; FE does not replace it.
+- Hover over a loaded image and press Ctrl+Shift+X to open Save Image As, without opening the context menu. Frames are supported. The helper currently reserves this combination globally while running.
+- The image context menu keeps the requested link/image commands, both Inspect commands and extension-provided entries while hiding other native entries.
 
 Download routing, ZIP extraction, deletion controls and download-history synchronization belong to [DownloadLens](https://github.com/Artllex/DownloadLens), not the current FE installer.
 
 ## Installation
 
-Download Firefox-Enhancements-Setup-0.1.18.exe from the latest release and run it with Firefox closed. AutoConfig installation requires UAC approval. Build from source with Build.ps1 (Inno Setup 7 on PATH).
+Download Firefox-Enhancements-Setup-0.1.41.exe from the latest release and run it with Firefox closed. AutoConfig installation requires UAC approval. Build from source with Build.ps1 (Inno Setup 7 on PATH).
 
-FE is privileged AutoConfig, not a WebExtension. FE 0.1.18 works alone or with DownloadLens Support 1.2.6 in either order, using one shared dispatcher. Recognized older installations are migrated with backups. Disabled modules are not reactivated; unknown or modified configurations remain protected.
+FE is privileged AutoConfig, not a WebExtension. FE 0.1.41 works alone or with DownloadLens Support 1.2.6 in either order, using one shared dispatcher. Recognized older installations are migrated with backups. Disabled modules are not reactivated; unknown or modified configurations remain protected.
 
 Use uninstall.ps1 as administrator to remove integration. The separate profile data is retained. See INSTALLER-README.txt.
 

@@ -15,7 +15,7 @@ for($i=0;$i -lt $count;$i++){
  $frame=[Drawing.Bitmap]::new($stream)
  try{if($frame.GetPixel(0,0).A -ne 0){throw 'Opaque ICO corner'};Write-Output "PASS transparent ICO frame: $($frame.Width)"}finally{$frame.Dispose();$stream.Dispose()}
 }
-$exe=Join-Path (Split-Path (Split-Path (Split-Path $PSScriptRoot))) 'outputs/Firefox-Enhancements-Setup-0.1.18.exe'
+$exe=Join-Path (Split-Path $PSScriptRoot) 'dist/Firefox-Enhancements-Setup-0.1.41.exe'
 # Compare actual embedded PNG resources, not the Windows shell icon cache.
 $exeHex=[BitConverter]::ToString([IO.File]::ReadAllBytes([IO.Path]::GetFullPath($exe)))
 for($i=0;$i -lt $count;$i++) {

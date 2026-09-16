@@ -40,7 +40,7 @@ function Invoke-ArtllexAutoConfig {
     $Root=[IO.Path]::GetFullPath($Root)
     if (!(Test-Path -LiteralPath (Join-Path $Root 'firefox.exe'))) {throw 'Firefox installation not found.'}
     $definitions=@{
-        FE=@{owner='FirefoxEnhancements';state='firefox-enhancements-state.json';pref='zipquickextract-autoconfig.js';cfg='zipquickextract.cfg';files=@('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs')}
+        FE=@{owner='FirefoxEnhancements';state='firefox-enhancements-state.json';pref='zipquickextract-autoconfig.js';cfg='zipquickextract.cfg';files=@('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs')}
         DL=@{owner='DownloadRouterSupport';state='download-router-support-state.json';pref='download-router-support.js';cfg='download-router-support.cfg';files=@('download-router-support.cfg','download-router-sync.sys.mjs','download-router-actions.sys.mjs','download-router-extract.ps1','download-router-extract.vbs')}
     }
     $prefDir=Join-Path $Root 'defaults/pref'
@@ -67,6 +67,12 @@ function Invoke-ArtllexAutoConfig {
                         'firefox_secret_window.vbs'='B5FE7AE4479DBEBB5056E3BBF1ED566826416B227C92A804B4A233D28DDCBED8'
                     }
                     $expected=$legacy[[IO.Path]::GetFileName($p)]
+                }
+                # A rollback to 0.1.37 leaves the 0.1.38 actor outside its ownership record.
+                # Adopt only this exact historical artifact during an FE installation.
+                if (!$expected -and $state -and $Product -eq 'FE' -and $key -eq 'FE' -and
+                    $Action -eq 'Install' -and [IO.Path]::GetFileName($p) -eq 'FirefoxEnhancementsHoverChild.sys.mjs') {
+                    $expected='9642EBD434B1A4C1A0DFA8CC453F894E65E9A6FEADF50E9C283C7301F2AD8395'
                 }
                 if(!$expected -or (Get-FileHash -LiteralPath $p).Hash -ne $expected) {throw "Unmanaged or modified file preserved: $p"}
             }

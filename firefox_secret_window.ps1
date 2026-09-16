@@ -58,6 +58,7 @@ public static class FirefoxSecretNative
 {
     public const uint MOD_ALT = 0x0001;
     public const uint MOD_CONTROL = 0x0002;
+    public const uint MOD_SHIFT = 0x0004;
     public const uint WM_HOTKEY = 0x0312;
     public const uint PM_REMOVE = 0x0001;
     public const int SW_HIDE = 0;
@@ -205,6 +206,10 @@ $toggleEvent = $null
 $hotkeyRegistered = $false
 $hotkeyId = 0x5346
 $vkSpace = 0x20
+$diagnosticHotkeyRegistered = $false
+$diagnosticHotkeyId = 0x5846
+$vkX = 0x58
+$diagnosticSignalFile = Join-Path $env:TEMP 'FirefoxEnhancementsCtrlShiftX.signal'
 $secretRootPid = 0
 $hidden = $false
 $suspendedPids = @()
@@ -539,8 +544,13 @@ function Toggle-SecretWindow {
 }
 
 try {
-    Initialize-SecretProfile
-    Load-State
+    try {
+        Initialize-SecretProfile
+        Load-State
+    }
+    catch {
+        Write-SecretLog "Inicjalizacja tajnego profilu nie powiodla sie; diagnostyka skrotu pozostaje aktywna: $($_.Exception.Message)"
+    }
 
     if (-not (Test-ProcessAlive $script:secretRootPid)) {
         $script:secretRootPid = Find-SecretRootPid
@@ -569,12 +579,28 @@ try {
         Write-SecretLog 'UWAGA: Ctrl+Alt+Space jest juz zajety i RegisterHotKey zwrocil false.'
     }
 
+    $diagnosticHotkeyRegistered = [FirefoxSecretNative]::RegisterHotKey(
+        [IntPtr]::Zero,
+        $diagnosticHotkeyId,
+        ([FirefoxSecretNative]::MOD_CONTROL -bor [FirefoxSecretNative]::MOD_SHIFT),
+        $vkX
+    )
+    if ($diagnosticHotkeyRegistered) {
+        Write-SecretLog 'Test: zarejestrowano Ctrl+Shift+X.'
+    }
+    else {
+        Write-SecretLog 'Test: nie mozna zarejestrowac Ctrl+Shift+X.'
+    }
+
     $lastCallerCheck = Get-Date
     while ($true) {
         $msg = New-Object FirefoxSecretNative+MSG
         while ([FirefoxSecretNative]::PeekMessage([ref]$msg, [IntPtr]::Zero, 0, 0, [FirefoxSecretNative]::PM_REMOVE)) {
             if ($msg.message -eq [FirefoxSecretNative]::WM_HOTKEY -and $msg.wParam.ToUInt64() -eq [uint64]$hotkeyId) {
                 Toggle-SecretWindow
+            }
+            if ($msg.message -eq [FirefoxSecretNative]::WM_HOTKEY -and $msg.wParam.ToUInt64() -eq [uint64]$diagnosticHotkeyId) {
+                [void](New-Item -ItemType File -Path $diagnosticSignalFile -Force)
             }
         }
 
@@ -609,6 +635,9 @@ catch {
     Write-SecretLog "Helper error: $($_.Exception.Message)"
 }
 finally {
+    if ($diagnosticHotkeyRegistered) {
+        try { [void][FirefoxSecretNative]::UnregisterHotKey([IntPtr]::Zero, $diagnosticHotkeyId) } catch {}
+    }
     if ($hotkeyRegistered) {
         try { [void][FirefoxSecretNative]::UnregisterHotKey([IntPtr]::Zero, $hotkeyId) } catch {}
     }
