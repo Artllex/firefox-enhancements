@@ -4,12 +4,12 @@ $repo=Split-Path $PSScriptRoot
 . "$repo/Shared-AutoConfig.ps1"
 $suite=Join-Path $repo ('dist/hover-upgrade-'+[guid]::NewGuid().ToString('N'))
 $sources=@{}
-foreach($name in @('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs')) {$sources[$name]=Join-Path $repo $name}
+foreach($name in @('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs','FirefoxEnhancementsLibrary.sys.mjs')) {$sources[$name]=Join-Path $repo $name}
 foreach($scenario in @('known-orphan','modified-orphan')) {
     $root=Join-Path $suite $scenario
     New-Item -ItemType Directory -Path "$root/defaults/pref" -Force | Out-Null
     [IO.File]::WriteAllText("$root/firefox.exe",'isolated fixture - not executable')
-    foreach($name in @('artllex.cfg','zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs','firefox-enhancements-state.json','download-router-support.cfg','download-router-support-state.json','download-router-sync.sys.mjs','download-router-actions.sys.mjs','download-router-extract.ps1','download-router-extract.vbs')) {
+    foreach($name in @('artllex.cfg','zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs','FirefoxEnhancementsLibrary.sys.mjs','firefox-enhancements-state.json','download-router-support.cfg','download-router-support-state.json','download-router-sync.sys.mjs','download-router-actions.sys.mjs','download-router-extract.ps1','download-router-extract.vbs')) {
         if(Test-Path "$InstalledRoot/$name") {Copy-Item -LiteralPath "$InstalledRoot/$name" -Destination "$root/$name"}
     }
     foreach($name in @('zipquickextract-autoconfig.js','download-router-support.js')) {

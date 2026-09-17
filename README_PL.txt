@@ -1,4 +1,4 @@
-Firefox Enhancements 0.1.41
+Firefox Enhancements 0.1.44
 Arkadiusz Pajda (Artllex), 2026. MIT.
 Repozytorium: https://github.com/Artllex/firefox-enhancements
 
@@ -7,6 +7,9 @@ Natywny skrot Firefoxa Ctrl+Shift+S uruchamia narzedzie zrzutu ekranu; FE go nie
 Najedz kursorem na obraz i nacisnij Ctrl+Shift+X, aby otworzyc Zapisz obraz jako bez PPM. Pomocnik rezerwuje te kombinacje globalnie podczas dzialania.
 Menu PPM nad obrazem zachowuje wybrane polecenia odnosnika i obrazu,
 obie pozycje Zbadaj oraz wszystkie pozycje dodane przez rozszerzenia.
+Biblioteka otrzymuje kolumny domeny bez www (z faviconą), ścieżki, parametrów,
+zamknięcia karty, czasu ostatniego i łącznego otwarcia, gwiazdki oraz otwarcia
+w nowej karcie. Ostatnia wizyta i nowe kolumny danych obsługują sortowanie.
 Ukrywanie okien i wstrzymywanie procesów oraz multimediów.
 Profil nie jest szyfrowany; Firefox Sync jest w nim wyłączony.
 

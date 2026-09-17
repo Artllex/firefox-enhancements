@@ -1,5 +1,7 @@
 # Local validation — 2026-09-16
 
+2026-09-17 / 0.1.44: isolated Firefox 155 live Library test passed for the renamed eight headers, removal of leading www and path slash, reuse of the Name-column favicon source, a 16 x 16 px domain-image style rule, blank/marked star with persisted toggle, native Last Visit sorting, domain row ordering, custom marking and duration sorting, a real TabClose with last/total elapsed timing, and the `↱` open-in-new-tab action. No module errors were logged. Normal user-profile visual acceptance, private-window exclusion and shutdown-time persistence were not live-tested. No publication requested for this version.
+
 User acceptance: after installing 0.1.41 the user confirmed "Dziala. Gotowe." following the JPEG fix and requested publication. This confirms the user's tested workflow, not exhaustive coverage of every site or image format.
 
 0.1.41: live isolated Firefox with updated child actor returned image/jpeg from a loaded JPEG and production saveHoveredImage passed that MIME type to internalSave. Native initFileInfo and appendFiltersForContentType selected a JPEG extension/filter for an extensionless https://example.org/images URL. This fixes the missing MIME/disposition arguments; no forced JPEG conversion. Dialog interaction and disk download remain untested. Installed Firefox files/profile were not changed.

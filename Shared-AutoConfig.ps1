@@ -40,7 +40,7 @@ function Invoke-ArtllexAutoConfig {
     $Root=[IO.Path]::GetFullPath($Root)
     if (!(Test-Path -LiteralPath (Join-Path $Root 'firefox.exe'))) {throw 'Firefox installation not found.'}
     $definitions=@{
-        FE=@{owner='FirefoxEnhancements';state='firefox-enhancements-state.json';pref='zipquickextract-autoconfig.js';cfg='zipquickextract.cfg';files=@('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs')}
+        FE=@{owner='FirefoxEnhancements';state='firefox-enhancements-state.json';pref='zipquickextract-autoconfig.js';cfg='zipquickextract.cfg';files=@('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs','FirefoxEnhancementsLibrary.sys.mjs')}
         DL=@{owner='DownloadRouterSupport';state='download-router-support-state.json';pref='download-router-support.js';cfg='download-router-support.cfg';files=@('download-router-support.cfg','download-router-sync.sys.mjs','download-router-actions.sys.mjs','download-router-extract.ps1','download-router-extract.vbs')}
     }
     $prefDir=Join-Path $Root 'defaults/pref'
@@ -72,7 +72,10 @@ function Invoke-ArtllexAutoConfig {
                 # Adopt only this exact historical artifact during an FE installation.
                 if (!$expected -and $state -and $Product -eq 'FE' -and $key -eq 'FE' -and
                     $Action -eq 'Install' -and [IO.Path]::GetFileName($p) -eq 'FirefoxEnhancementsHoverChild.sys.mjs') {
-                    $expected='9642EBD434B1A4C1A0DFA8CC453F894E65E9A6FEADF50E9C283C7301F2AD8395'
+                    $knownActors=@('9642EBD434B1A4C1A0DFA8CC453F894E65E9A6FEADF50E9C283C7301F2AD8395',
+                        '4921D96B0BC9B5E96661C33184291E4254AE756F80C2FA28AB779D1644A93457')
+                    $actual=(Get-FileHash -LiteralPath $p).Hash
+                    if($actual -in $knownActors) {$expected=$actual}
                 }
                 if(!$expected -or (Get-FileHash -LiteralPath $p).Hash -ne $expected) {throw "Unmanaged or modified file preserved: $p"}
             }
