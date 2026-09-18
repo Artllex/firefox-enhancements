@@ -1,4 +1,4 @@
-#define Version "0.1.51"
+#define Version "0.1.52"
 [Setup]
 AppId=Artllex.FirefoxEnhancements
 AppName=Firefox Enhancements
@@ -30,6 +30,7 @@ Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 [Files]
 Source: "assets\Firefox-Enhancements.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "FirefoxEnhancementsHoverChild.sys.mjs"; DestDir: "{app}"; Flags: ignoreversion
+Source: "FirefoxEnhancementsLibrary.sys.mjs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "zipquickextract.cfg"; DestDir: "{app}"; Flags: ignoreversion
 Source: "zipquickextract-autoconfig.js"; DestDir: "{app}"; Flags: ignoreversion
 Source: "firefox_secret_window.ps1"; DestDir: "{app}"; Flags: ignoreversion

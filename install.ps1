@@ -57,7 +57,7 @@ if (!$IsolatedTest -and (Get-Process firefox -ErrorAction SilentlyContinue)) {th
 $firefoxDir = if ($FirefoxDirectory) { [IO.Path]::GetFullPath($FirefoxDirectory) } else { Find-FirefoxDir }
 if (!$firefoxDir) {throw 'Firefox installation not found.'}
 $sources=@{}
-foreach($name in @('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs')) {$sources[$name]=Join-Path $scriptDir $name}
+foreach($name in @('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs','FirefoxEnhancementsLibrary.sys.mjs')) {$sources[$name]=Join-Path $scriptDir $name}
 Invoke-ArtllexAutoConfig -Root $firefoxDir -Product FE -Sources $sources
 $obsoleteShortcutActor=Join-Path $firefoxDir 'FirefoxEnhancementsShortcutsChild.sys.mjs'
 if(Test-Path -LiteralPath $obsoleteShortcutActor) {Remove-Item -LiteralPath $obsoleteShortcutActor -Force}

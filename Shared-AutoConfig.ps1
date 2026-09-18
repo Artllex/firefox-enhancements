@@ -40,7 +40,7 @@ function Invoke-ArtllexAutoConfig {
     $Root=[IO.Path]::GetFullPath($Root)
     if (!(Test-Path -LiteralPath (Join-Path $Root 'firefox.exe'))) {throw 'Firefox installation not found.'}
     $definitions=@{
-        FE=@{owner='FirefoxEnhancements';state='firefox-enhancements-state.json';pref='zipquickextract-autoconfig.js';cfg='zipquickextract.cfg';files=@('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs')}
+        FE=@{owner='FirefoxEnhancements';state='firefox-enhancements-state.json';pref='zipquickextract-autoconfig.js';cfg='zipquickextract.cfg';files=@('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs','FirefoxEnhancementsLibrary.sys.mjs')}
         DL=@{owner='DownloadRouterSupport';state='download-router-support-state.json';pref='download-router-support.js';cfg='download-router-support.cfg';files=@('download-router-support.cfg','download-router-sync.sys.mjs','download-router-actions.sys.mjs','download-router-extract.ps1','download-router-extract.vbs')}
     }
     $prefDir=Join-Path $Root 'defaults/pref'
@@ -77,7 +77,9 @@ function Invoke-ArtllexAutoConfig {
                     $actual=(Get-FileHash -LiteralPath $p).Hash
                     if($actual -in $knownActors) {$expected=$actual}
                 }
-                if(!$expected -or (Get-FileHash -LiteralPath $p).Hash -ne $expected) {throw "Unmanaged or modified file preserved: $p"}
+                $fileName=[IO.Path]::GetFileName($p)
+                $ownUpgrade=($Action -eq 'Install' -and $key -eq $Product -and $Sources -and $Sources.ContainsKey($fileName))
+                if(!$ownUpgrade -and (!$expected -or (Get-FileHash -LiteralPath $p).Hash -ne $expected)) {throw "Unmanaged or modified file preserved: $p"}
             }
         }
         $states[$key]=$state
