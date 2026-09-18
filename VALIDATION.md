@@ -1,5 +1,17 @@
 # Local validation — 2026-09-16
 
+2026-09-18 / 0.1.50: changed custom header construction to match Firefox's native `treecol` followed by `tree-splitter` layout. The live isolated Firefox test verifies every custom column has a following splitter; all seven headers, native Name behavior, sorting, marking and timing checks pass.
+
+2026-09-18 / 0.1.50: installer configuration now registers Firefox Enhancements in Windows Installed apps with a standard Uninstall entry and routes uninstallation through the privileged integration-removal script. The installed-app registration and complete removal of Firefox integration were verified.
+
+2026-09-18 / 0.1.48: rolled back every Name-column customization (favicon suppression, click/mousedown action, pointer cursor and minimum width) while keeping the separate Open column removed. The live isolated Firefox 155 test confirms exactly seven custom headers with `Ostatni czas`, `Łączny czas` and `Liked`, native Name behavior left unchanged, Domain favicon/normalization, star persistence, native/custom sorting and tab-close timing. No module errors were logged.
+
+2026-09-18 / 0.1.47: reproduced the user-visible failure: Firefox's mandatory Name column was enabled but its flexible width collapsed to zero after adding the custom columns. The module now enforces a 180 px minimum width. The isolated Firefox 155 test no longer reveals Name artificially; it verifies a naturally visible header width, active pointer cursor, real Name-cell `mousedown`, exactly one newly opened tab, hidden Name favicon and all seven custom columns. Sorting, marking, timing and console-error checks also passed.
+
+2026-09-18 / 0.1.46: corrected the Name interaction after the original synthetic hit-test masked the real UI path. The isolated Firefox 155 test now locates the visible native Name cell through actual tree coordinates, verifies its pointer cursor, dispatches a real `mousedown`, and confirms that the matching URL opens in exactly one new tab. The seven custom columns, hidden Name favicon, Domain favicon, persisted star, sorting and timing checks also passed with no module errors.
+
+2026-09-18 / 0.1.45: isolated Firefox 155 live Library test passed for the seven custom headers (`Domena`, `Ścieżka`, `Parametry`, `Ostatnie zamknięcie karty`, `Ostatni czas`, `Łączny czas`, `Liked`), favicon shown in Domain and hidden in native Name, single-click Name opening the URL in a new tab, persisted star toggling, native/custom sorting, and tab-close timing. No module errors were logged. Normal user-profile visual acceptance remains pending.
+
 2026-09-17 / 0.1.44: isolated Firefox 155 live Library test passed for the renamed eight headers, removal of leading www and path slash, reuse of the Name-column favicon source, a 16 x 16 px domain-image style rule, blank/marked star with persisted toggle, native Last Visit sorting, domain row ordering, custom marking and duration sorting, a real TabClose with last/total elapsed timing, and the `↱` open-in-new-tab action. No module errors were logged. Normal user-profile visual acceptance, private-window exclusion and shutdown-time persistence were not live-tested. No publication requested for this version.
 
 User acceptance: after installing 0.1.41 the user confirmed "Dziala. Gotowe." following the JPEG fix and requested publication. This confirms the user's tested workflow, not exhaustive coverage of every site or image format.

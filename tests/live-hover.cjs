@@ -51,12 +51,15 @@ async function script(script, args = []) {
         if(win.document.readyState!=='complete') await new Promise(r=>win.addEventListener('load',r,{once:true}));
         await new Promise(r=>win.setTimeout(r,500));
         const cols=[...win.document.querySelectorAll('[fe-library-column]')];
+        if(cols.slice(0,-1).some(column=>column.nextElementSibling?.localName!=='splitter') || cols.at(-1)?.nextElementSibling?.localName==='splitter') throw Error('Library column splitter order failed');
         const view=Object.create(win.PlacesTreeView.prototype);
         view._getNodeForRow=()=>({uri:'https://example.org/folder/page?q=hello#part'});
         view._findColumnByType=()=>({element:{getAttribute:name=>name==='anonid'?'title':''}});
         const values=cols.map(element=>view.getCellText(0,{element}));
         view._getNodeForRow=()=>({uri:'https://www.example.org/folder/page?q=hello#part',icon:'https://example.org/favicon.ico'});
         if(view.getCellText(0,{element:cols[0]})!=='example.org' || view.getImageSrc(0,{element:cols[0]})!=='https://example.org/favicon.ico') throw Error('Domain normalization/favicon failed');
+        const mockTitle={element:{getAttribute:name=>name==='anonid'?'title':''}};
+        if(view.getImageSrc(0,mockTitle)!=='https://example.org/favicon.ico') throw Error('Native Name favicon was changed');
         const {PlacesUtils}=ChromeUtils.importESModule('resource://gre/modules/PlacesUtils.sys.mjs');
         const url='https://example.org/folder/page?q=hello#part';
         await PlacesUtils.history.insert({url,title:'FE test',visits:[{date:new Date()}]});
@@ -98,23 +101,14 @@ async function script(script, args = []) {
         tree.view.cycleHeader(tree.columns.getNamedColumn(cols[4].id));
         tree.view.cycleHeader(tree.columns.getNamedColumn(cols[5].id));
         if(cols[5].getAttribute('sortDirection')!=='ascending') throw Error('Duration sorting failed');
-        const tabsBefore=browser.gBrowser.tabs.length;
-        let openRow=-1;
-        for(let i=0;i<tree.view.rowCount;i++){if(tree.view._getNodeForRow(i).uri===url){openRow=i;break;}}
-        tree.getCellAt=()=>({row:openRow,col:{element:cols[7]}});
-        tree.dispatchEvent(new win.MouseEvent('click',{button:0,bubbles:true}));
-        tree.getCellAt=originalHit;
-        await new Promise(r=>win.setTimeout(r,300));
-        const openedTab=browser.gBrowser.tabs.at(-1);
-        if(browser.gBrowser.tabs.length!==tabsBefore+1 || openedTab.linkedBrowser.currentURI.spec!==url) throw Error('Open in new tab failed');
-        browser.gBrowser.removeTab(openedTab,{animate:false});
         const errors=Services.console.getMessageArray().filter(x=>x.message.includes('FirefoxEnhancementsLibrary')).map(x=>x.message);
         win.close();
-        done({labels:cols.map(x=>x.getAttribute('label')),values,domainNormalizedWithFavicon:true,starTogglePersisted:true,nativeAndCustomSorting:true,tabCloseAndTimeRecorded:true,openTab:true,errors});
+        done({labels:cols.map(x=>x.getAttribute('label')),values,domainNormalizedWithFavicon:true,nativeNameUnchanged:true,starTogglePersisted:true,nativeAndCustomSorting:true,tabCloseAndTimeRecorded:true,errors});
       })().catch(e=>done({error:String(e),stack:e.stack}));
     `,args:[],sandbox:'system',newSandbox:false});
     console.log(JSON.stringify(result));
-    assert.deepEqual(result.value.values,['example.org','folder/page','?q=hello#part','','','','','↱']);
+    assert.deepEqual(result.value.labels,['Domena','Ścieżka','Parametry','Ostatnie zamknięcie karty','Ostatni czas','Łączny czas','Liked']);
+    assert.deepEqual(result.value.values,['example.org','folder/page','?q=hello#part','','','','']);
     assert.deepEqual(result.value.errors,[]);
     await command('WebDriver:DeleteSession');socket.end();return;
   }

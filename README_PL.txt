@@ -1,4 +1,4 @@
-Firefox Enhancements 0.1.44
+Firefox Enhancements 0.1.50
 Arkadiusz Pajda (Artllex), 2026. MIT.
 Repozytorium: https://github.com/Artllex/firefox-enhancements
 

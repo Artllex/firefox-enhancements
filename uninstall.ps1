@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 
 function Find-FirefoxDir {
     $candidates = @()
+    if ($env:ProgramW6432) { $candidates += (Join-Path $env:ProgramW6432 'Mozilla Firefox') }
     if ($env:ProgramFiles) { $candidates += (Join-Path $env:ProgramFiles 'Mozilla Firefox') }
     if (${env:ProgramFiles(x86)}) { $candidates += (Join-Path ${env:ProgramFiles(x86)} 'Mozilla Firefox') }
     if ($env:LOCALAPPDATA) { $candidates += (Join-Path $env:LOCALAPPDATA 'Mozilla Firefox') }
@@ -17,6 +18,15 @@ if (-not $firefoxDir) { throw 'Nie znaleziono instalacji Firefox.' }
 
 . (Join-Path $PSScriptRoot 'Shared-AutoConfig.ps1')
 if (!$IsolatedTest -and (Get-Process firefox -ErrorAction SilentlyContinue)) {throw 'Close all Firefox windows before changing integration.'}
+# Uninstallation must also recover from a locally modified FE-owned file. The
+# shared configurator intentionally protects such files during normal updates,
+# but that protection must not make the product impossible to uninstall.
+if (!$IsolatedTest) {
+    foreach ($name in @('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs','FirefoxEnhancementsLibrary.sys.mjs')) {
+        $path = Join-Path $firefoxDir $name
+        if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
+    }
+}
 Invoke-ArtllexAutoConfig -Root $firefoxDir -Product FE -Action Remove
 Write-Host 'Firefox Enhancements removed. Profile data and other modules preserved.'
 if (!$NonInteractive) {Read-Host 'Press Enter to close'}

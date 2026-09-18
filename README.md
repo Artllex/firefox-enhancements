@@ -6,9 +6,9 @@ Windows Firefox enhancements by Arkadiusz Pajda (Artllex), 2026. MIT.
 
 Repository: https://github.com/Artllex/firefox-enhancements
 
-## Current scope (0.1.44)
+## Current scope (0.1.51)
 
-- Library columns: domain without `www.`, URL path, query/fragment, last recorded tab closure, last and total open duration, an independent star, and an open-in-new-tab action. Domain, closure, duration and star columns are sortable. Domain cells repeat the page favicon; an unstarred row has no star icon. Timing covers elapsed time from entry until navigation, tab close or browser shutdown. Tracking starts after installation and ignores private windows and the Secret profile. Metadata is per URL, stored locally in firefox-enhancements-library.json in the profile, separately from Firefox history; clearing native history does not yet remove this file.
+- The Firefox Library window is left fully native; Firefox Enhancements does not add custom history columns or tracking there.
 
 - Move Restore Previous Session and Clear Recent History directly below History in the main menu.
 - Separate Firefox profile toggled with Ctrl+Alt+Space.
@@ -22,9 +22,9 @@ Download routing, ZIP extraction, deletion controls and download-history synchro
 
 ## Installation
 
-Download Firefox-Enhancements-Setup-0.1.44.exe from the latest release and run it with Firefox closed. AutoConfig installation requires UAC approval. Build from source with Build.ps1 (Inno Setup 7 on PATH).
+Download Firefox-Enhancements-Setup-0.1.50.exe from the latest release and run it with Firefox closed. AutoConfig installation requires UAC approval. Build from source with Build.ps1 (Inno Setup 7 on PATH).
 
-FE is privileged AutoConfig, not a WebExtension. FE 0.1.44 works alone or with DownloadLens Support 1.2.6 in either order, using one shared dispatcher. Recognized older installations are migrated with backups. Disabled modules are not reactivated; unknown or modified configurations remain protected.
+FE is privileged AutoConfig, not a WebExtension. FE 0.1.50 works alone or with DownloadLens Support 1.2.6 in either order, using one shared dispatcher. Recognized older installations are migrated with backups. Disabled modules are not reactivated; unknown or modified configurations remain protected.
 
 Use uninstall.ps1 as administrator to remove integration. The separate profile data is retained. See INSTALLER-README.txt.
 

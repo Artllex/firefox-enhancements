@@ -1,12 +1,12 @@
-# Firefox Enhancements 0.1.44
+# Firefox Enhancements 0.1.50
 
-- Library integration: domain without `www.` and with the same favicon as Name constrained to 16 x 16 px; professional `Ścieżka`, `Parametry` and `Oznaczenie` headers; paths omit the leading slash; empty stars are blank; the open action uses `↱`. Native Last Visit sorting works; domain, closure, duration and marking columns are sortable. Timing ends on navigation, tab close or browser shutdown. Metadata lives separately in the profile and is not yet deleted when native history is cleared. User acceptance of 0.1.44 is pending.
+- Library integration: the native `Nazwa` column is no longer modified. The separate `Otwórz` column remains removed. Each custom column now has the native tree splitter after it, so its width can be changed from the top header. Domain omits `www.` and shows the favicon constrained to 16 x 16 px. The custom headers are `Ścieżka`, `Parametry`, `Ostatni czas`, `Łączny czas` and `Liked`; paths omit the leading slash and empty stars are blank. Native Last Visit sorting works; domain, closure, duration and marking columns are sortable. Timing ends on navigation, tab close or browser shutdown. Metadata lives separately in the profile and is not yet deleted when native history is cleared. User acceptance of this update is pending.
 
 - Hover save now supplies the loaded image MIME type and content disposition, matching Firefox's native image save action. Fixes HTML file-type selection for image URLs without an extension. Original image format is preserved, not converted to JPEG.
 
 - Fix upgrade after rollback to 0.1.37: adopt only the exact known orphaned hover actor (SHA-256 allowlist). Unknown or modified files remain protected. Tested using a copy of the installed integration with DownloadLens enabled, including repeated install and rejection of a modified actor.
 
-![Firefox Enhancements](https://raw.githubusercontent.com/Artllex/firefox-enhancements/v0.1.44/assets/firefox-enhancements-icon.png)
+![Firefox Enhancements](https://raw.githubusercontent.com/Artllex/firefox-enhancements/v0.1.50/assets/firefox-enhancements-icon.png)
 
 - Removed the redundant experimental screenshot shortcut and its low-level keyboard hook. Firefox already provides Ctrl+Shift+S.
 - Ctrl+Shift+X saves the loaded image under the mouse pointer without opening the context menu, including images inside frames. The native save dialog is used.

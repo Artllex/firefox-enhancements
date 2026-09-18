@@ -1,4 +1,4 @@
-#define Version "0.1.44"
+#define Version "0.1.51"
 [Setup]
 AppId=Artllex.FirefoxEnhancements
 AppName=Firefox Enhancements
@@ -13,7 +13,9 @@ WizardStyle=modern
 DisableWelcomePage=no
 LanguageDetectionMethod=none
 MinVersion=10.0
-Uninstallable=no
+Uninstallable=yes
+UninstallDisplayName=Firefox Enhancements
+UninstallDisplayIcon={app}\Firefox-Enhancements.ico
 OutputDir=dist
 OutputBaseFilename=Firefox-Enhancements-Setup-{#Version}
 Compression=lzma2
@@ -26,7 +28,7 @@ SetupIconFile=assets\Firefox-Enhancements.ico
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 [Files]
-Source: "FirefoxEnhancementsLibrary.sys.mjs"; DestDir: "{app}"; Flags: ignoreversion
+Source: "assets\Firefox-Enhancements.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "FirefoxEnhancementsHoverChild.sys.mjs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "zipquickextract.cfg"; DestDir: "{app}"; Flags: ignoreversion
 Source: "zipquickextract-autoconfig.js"; DestDir: "{app}"; Flags: ignoreversion
@@ -51,6 +53,7 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then begin
+    if ExpandConstant('{param:REGISTERONLY|0}') = '1' then Exit;
     if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
       '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\Apply-Update.ps1') + '"',
       ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then
@@ -58,4 +61,22 @@ begin
     if ResultCode <> 0 then
       RaiseException('Update failed / Aktualizacja nieudana. See: ' + ExpandConstant('{app}\update-result.txt'));
   end;
+end;
+
+function InitializeUninstall(): Boolean;
+var ResultCode: Integer; PowerShellPath: String;
+begin
+  Result := False;
+  PowerShellPath := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
+  if not ShellExec('runas', PowerShellPath,
+    '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\uninstall.ps1') + '" -NonInteractive',
+    ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
+    MsgBox('Could not start integration removal. Uninstallation cancelled.', mbError, MB_OK);
+    Exit;
+  end;
+  if ResultCode <> 0 then begin
+    MsgBox('Close all Firefox windows and retry. Integration removal failed; uninstallation cancelled.', mbError, MB_OK);
+    Exit;
+  end;
+  Result := True;
 end;

@@ -40,7 +40,7 @@ function Invoke-ArtllexAutoConfig {
     $Root=[IO.Path]::GetFullPath($Root)
     if (!(Test-Path -LiteralPath (Join-Path $Root 'firefox.exe'))) {throw 'Firefox installation not found.'}
     $definitions=@{
-        FE=@{owner='FirefoxEnhancements';state='firefox-enhancements-state.json';pref='zipquickextract-autoconfig.js';cfg='zipquickextract.cfg';files=@('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs','FirefoxEnhancementsLibrary.sys.mjs')}
+        FE=@{owner='FirefoxEnhancements';state='firefox-enhancements-state.json';pref='zipquickextract-autoconfig.js';cfg='zipquickextract.cfg';files=@('zipquickextract.cfg','firefox_secret_window.ps1','firefox_secret_window.vbs','FirefoxEnhancementsHoverChild.sys.mjs')}
         DL=@{owner='DownloadRouterSupport';state='download-router-support-state.json';pref='download-router-support.js';cfg='download-router-support.cfg';files=@('download-router-support.cfg','download-router-sync.sys.mjs','download-router-actions.sys.mjs','download-router-extract.ps1','download-router-extract.vbs')}
     }
     $prefDir=Join-Path $Root 'defaults/pref'
