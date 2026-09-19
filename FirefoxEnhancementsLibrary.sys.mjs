@@ -55,7 +55,51 @@ function installLibrary(win){
       item.setAttribute('value',value);item.setAttribute('label',label);
       popup.append(item);
     }
-    select.append(popup);bar.append(select);
+    select.append(popup);
+    const input=win.document.createElementNS('http://www.w3.org/1999/xhtml','input');
+    input.id='fe-library-filter-value';
+    input.setAttribute('type','text');
+    input.setAttribute('placeholder','Wartość');
+    input.setAttribute('aria-label','Wartość filtra');
+    input.style.cssText='display:block;box-sizing:border-box;width:360px;height:32px;margin-inline-start:8px;padding:4px 8px;color:var(--organizer-color);background:var(--organizer-content-background);border:1px solid var(--organizer-border-color);border-radius:4px;';
+    const button=win.document.createXULElement('button');
+    button.id='fe-library-filter-button';
+    button.setAttribute('label','Filtruj');
+    button.style.cssText='margin-inline-start:8px;';
+    const filter=()=>{
+      const tree=win.document.getElementById('placeContent'),view=tree?.view;
+      if(!view)return;
+      const query=input.value.trim().toLocaleLowerCase('pl-PL');
+      if(!view.__feFilterRows||view.__feFilterRoot!==view._rootNode){
+        view.__feFilterRows=Array.from({length:view.rowCount},(_,i)=>view._getNodeForRow(i));
+        view.__feFilterRoot=view._rootNode;
+      }
+      const value=(node,field)=>{
+        const uri=node?.uri||'',entry=entries[uri]||{},parts=addressParts(uri)||{};
+        if(field==='title')return node?.title||'';
+        if(field==='url')return uri;
+        if(field==='domain'||field==='path'||field==='parameters')return parts[field]||'';
+        if(field==='closed')return entry.closed?new Date(entry.closed).toLocaleString('pl-PL'):'';
+        if(field==='last')return formatDuration(entry.lastDuration);
+        if(field==='total')return formatDuration(entry.totalDuration);
+        if(field==='star')return entry.star?'Liked':'';
+        if(field==='tags')return node?.tags||'';
+        if(field==='date')return node?.time?new Date(node.time/1000).toLocaleString('pl-PL'):'';
+        if(field==='visitCount')return String(node?.accessCount??'');
+        return '';
+      };
+      const rows=query?view.__feFilterRows.filter(node=>String(value(node,select.value)).toLocaleLowerCase('pl-PL').includes(query)):view.__feFilterRows.slice();
+      const oldCount=view.rowCount;
+      view._tree.beginUpdateBatch();
+      if(oldCount)view._tree.rowCountChanged(0,-oldCount);
+      view._rows=rows;
+      if(rows.length)view._tree.rowCountChanged(0,rows.length);
+      view._tree.endUpdateBatch();
+      view._tree.invalidate();
+    };
+    button.addEventListener('command',filter);
+    input.addEventListener('keydown',event=>{if(event.key==='Enter')filter()});
+    bar.append(select,input,button);
     contentView.insertBefore(bar,viewsBox);
   }
   const tree=win.document.getElementById('placeContent'),headers=win.document.getElementById('placeContentColumns');
