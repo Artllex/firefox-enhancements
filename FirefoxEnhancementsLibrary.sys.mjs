@@ -38,6 +38,26 @@ function installBrowser(win){
   win.addEventListener('unload',()=>{for(const browser of win.gBrowser.browsers)finish(browser,true);try{win.gBrowser.removeTabsProgressListener(progress)}catch(_){}},{once:true});
 }
 function installLibrary(win){
+  const contentView=win.document.getElementById('contentView'),viewsBox=win.document.getElementById('placesViewsBox');
+  if(contentView && viewsBox && !win.document.getElementById('fe-library-column-picker')){
+    const bar=win.document.createXULElement('hbox');
+    bar.id='fe-library-filter-bar';
+    bar.setAttribute('align','center');
+    bar.style.cssText='padding:8px 12px;border-bottom:1px solid var(--organizer-border-color);';
+    const select=win.document.createXULElement('menulist');
+    select.id='fe-library-column-picker';
+    select.setAttribute('value','title');
+    select.setAttribute('label','Nazwa');
+    select.style.cssText='min-width:170px;';
+    const popup=win.document.createXULElement('menupopup');
+    for(const [value,label] of [['title','Nazwa'],['domain','Domena'],['path','Ścieżka'],['parameters','Parametry'],['closed','Ostatnie zamknięcie'],['last','Ostatni czas'],['total','Łączny czas'],['star','Liked'],['tags','Etykiety'],['url','Adres'],['date','Ostatnia wizyta'],['visitCount','Liczba wizyt']]){
+      const item=win.document.createXULElement('menuitem');
+      item.setAttribute('value',value);item.setAttribute('label',label);
+      popup.append(item);
+    }
+    select.append(popup);bar.append(select);
+    contentView.insertBefore(bar,viewsBox);
+  }
   const tree=win.document.getElementById('placeContent'),headers=win.document.getElementById('placeContentColumns');
   if(!tree||!headers||win.__feLibraryColumns)return;win.__feLibraryColumns=true;
   const proto=win.PlacesTreeView.prototype,originalText=proto.getCellText,originalCycle=proto.cycleHeader;
