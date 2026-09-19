@@ -20,6 +20,19 @@ function formatDuration(ms){
   const minutes=Math.floor((seconds%3600)/60),rest=seconds%60;
   return hours?`${hours}:${String(minutes).padStart(2,'0')}:${String(rest).padStart(2,'0')}`:`${minutes}:${String(rest).padStart(2,'0')}`;
 }
+function parseDuration(text){
+  const value=String(text).trim().toLocaleLowerCase('pl-PL').replace(/,/g,'.');
+  if(!value)return NaN;
+  if(/^\d+(?::\d{1,2}){1,2}$/.test(value)){
+    const parts=value.split(':').map(Number);let seconds=0;
+    for(const part of parts)seconds=seconds*60+part;
+    return seconds*1000;
+  }
+  let seconds=0,matched='',match;
+  const pattern=/(\d+(?:\.\d+)?)\s*(h|godz(?:\.|iny|ina)?|min(?:\.|uty|uta)?|m|s|sek(?:\.|undy|unda)?)/g;
+  while((match=pattern.exec(value))){matched+=match[0];const amount=Number(match[1]),unit=match[2];seconds+=amount*(unit==='h'||unit.startsWith('godz')?3600:unit==='m'||unit.startsWith('min')?60:1)}
+  return matched&&value.replace(pattern,'').trim()===''?seconds*1000:NaN;
+}
 function addressParts(uri){try{const url=new URL(uri);if(!['http:','https:','ftp:'].includes(url.protocol))return null;return {domain:url.hostname.replace(/^www\./i,''),path:url.pathname.replace(/^\//,''),parameters:url.search+url.hash}}catch(_){return null}}
 function refresh(){for(const win of libraryWindows)win.document.getElementById('placeContent')?.invalidate()}
 function save(){writes=writes.catch(()=>{}).then(()=>IOUtils.writeUTF8(storePath,JSON.stringify({version:1,entries}),{tmpPath:storePath+'.tmp'}));refresh()}
@@ -56,6 +69,16 @@ function installLibrary(win){
       popup.append(item);
     }
     select.append(popup);
+    const operator=win.document.createXULElement('menulist');
+    operator.id='fe-library-filter-operator';
+    operator.setAttribute('value','contains');
+    operator.setAttribute('label','zawiera');
+    operator.style.cssText='min-width:120px;margin-inline-start:8px;';
+    const operatorPopup=win.document.createXULElement('menupopup');
+    for(const [value,label] of [['contains','zawiera'],['notContains','nie zawiera'],['eq','='],['ne','≠'],['gt','>'],['ge','≥'],['lt','<'],['le','≤']]){
+      const item=win.document.createXULElement('menuitem');item.setAttribute('value',value);item.setAttribute('label',label);operatorPopup.append(item);
+    }
+    operator.append(operatorPopup);
     const input=win.document.createElementNS('http://www.w3.org/1999/xhtml','input');
     input.id='fe-library-filter-value';
     input.setAttribute('type','text');
@@ -69,26 +92,45 @@ function installLibrary(win){
     const filter=()=>{
       const tree=win.document.getElementById('placeContent'),view=tree?.view;
       if(!view)return;
-      const query=input.value.trim().toLocaleLowerCase('pl-PL');
+      const query=input.value.trim(),normalizedQuery=query.toLocaleLowerCase('pl-PL');
       if(!view.__feFilterRows||view.__feFilterRoot!==view._rootNode){
         view.__feFilterRows=Array.from({length:view.rowCount},(_,i)=>view._getNodeForRow(i));
         view.__feFilterRoot=view._rootNode;
       }
-      const value=(node,field)=>{
+      const value=(node,field,raw=false)=>{
         const uri=node?.uri||'',entry=entries[uri]||{},parts=addressParts(uri)||{};
         if(field==='title')return node?.title||'';
         if(field==='url')return uri;
         if(field==='domain'||field==='path'||field==='parameters')return parts[field]||'';
-        if(field==='closed')return entry.closed?new Date(entry.closed).toLocaleString('pl-PL'):'';
-        if(field==='last')return formatDuration(entry.lastDuration);
-        if(field==='total')return formatDuration(entry.totalDuration);
+        if(field==='closed')return raw?(entry.closed||NaN):(entry.closed?new Date(entry.closed).toLocaleString('pl-PL'):'');
+        if(field==='last')return raw?entry.lastDuration:formatDuration(entry.lastDuration);
+        if(field==='total')return raw?entry.totalDuration:formatDuration(entry.totalDuration);
         if(field==='star')return entry.star?'Liked':'';
         if(field==='tags')return node?.tags||'';
-        if(field==='date')return node?.time?new Date(node.time/1000).toLocaleString('pl-PL'):'';
-        if(field==='visitCount')return String(node?.accessCount??'');
+        if(field==='date')return raw?(node?.time?node.time/1000:NaN):(node?.time?new Date(node.time/1000).toLocaleString('pl-PL'):'');
+        if(field==='visitCount')return raw?Number(node?.accessCount):String(node?.accessCount??'');
         return '';
       };
-      const rows=query?view.__feFilterRows.filter(node=>String(value(node,select.value)).toLocaleLowerCase('pl-PL').includes(query)):view.__feFilterRows.slice();
+      const numericFields=new Set(['last','total','visitCount','closed','date']),field=select.value,operation=operator.value;
+      let expected=normalizedQuery;
+      if(field==='last'||field==='total')expected=parseDuration(query);
+      else if(field==='visitCount')expected=Number(query.replace(',','.'));
+      else if(field==='closed'||field==='date')expected=Date.parse(query);
+      const matches=node=>{
+        const display=String(value(node,field)).toLocaleLowerCase('pl-PL');
+        if(operation==='contains')return display.includes(normalizedQuery);
+        if(operation==='notContains')return !display.includes(normalizedQuery);
+        const actual=numericFields.has(field)?Number(value(node,field,true)):display;
+        if(numericFields.has(field)&&(!Number.isFinite(actual)||!Number.isFinite(expected)))return false;
+        if(operation==='eq')return actual===expected;
+        if(operation==='ne')return actual!==expected;
+        if(operation==='gt')return actual>expected;
+        if(operation==='ge')return actual>=expected;
+        if(operation==='lt')return actual<expected;
+        if(operation==='le')return actual<=expected;
+        return false;
+      };
+      const rows=query?view.__feFilterRows.filter(matches):view.__feFilterRows.slice();
       const oldCount=view.rowCount;
       view._tree.beginUpdateBatch();
       if(oldCount)view._tree.rowCountChanged(0,-oldCount);
@@ -99,7 +141,13 @@ function installLibrary(win){
     };
     button.addEventListener('command',filter);
     input.addEventListener('keydown',event=>{if(event.key==='Enter')filter()});
-    bar.append(select,input,button);
+    select.addEventListener('command',()=>{
+      const numeric=['last','total','visitCount','closed','date'].includes(select.value);
+      if(numeric&&['contains','notContains'].includes(operator.value)){operator.value='ge';operator.setAttribute('label','≥')}
+      if(!numeric&&!['contains','notContains','eq','ne'].includes(operator.value)){operator.value='contains';operator.setAttribute('label','zawiera')}
+      input.placeholder=select.value==='last'||select.value==='total'?'np. 3h 40min 10s':select.value==='visitCount'?'Liczba':'Wartość';
+    });
+    bar.append(select,operator,input,button);
     contentView.insertBefore(bar,viewsBox);
   }
   const tree=win.document.getElementById('placeContent'),headers=win.document.getElementById('placeContentColumns');
