@@ -142,6 +142,7 @@ function installLibrary(win){
         return false;
       };
       const rows=query?view.__feFilterRows.filter(matches):view.__feFilterRows.slice();
+      if(!grid.hidden){win.__feRenderLibraryGrid?.(rows);return}
       const oldCount=view.rowCount;
       view._tree.beginUpdateBatch();
       if(oldCount)view._tree.rowCountChanged(0,-oldCount);
@@ -149,9 +150,11 @@ function installLibrary(win){
       if(rows.length)view._tree.rowCountChanged(0,rows.length);
       view._tree.endUpdateBatch();
       view._tree.invalidate();
+      if(!grid.hidden)win.__feRenderLibraryGrid?.();
     };
     button.addEventListener('command',filter);
     input.addEventListener('keydown',event=>{if(event.key==='Enter')filter()});
+    win.__feApplyLibraryFilter=filter;
     select.addEventListener('command',()=>{
       const numeric=['last','total','visitCount','closed','date'].includes(select.value);
       if(select.value==='star'){operator.value='eq';operator.setAttribute('label','=')}
@@ -164,7 +167,45 @@ function installLibrary(win){
   }
   const tree=win.document.getElementById('placeContent'),headers=win.document.getElementById('placeContentColumns');
   if(!tree||!headers||win.__feLibraryColumns)return;win.__feLibraryColumns=true;
+  const grid=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');
+  grid.id='fe-library-grid';grid.hidden=true;
+  grid.style.cssText='display:grid;flex:1;min-height:0;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));grid-auto-rows:max-content;gap:14px;padding:14px;overflow:auto;background:var(--organizer-content-background);';
+  win.document.getElementById('placesViewsBox')?.append(grid);
+  const gridStyle=win.document.createElementNS('http://www.w3.org/1999/xhtml','style');
+  gridStyle.textContent='#fe-library-grid .fe-library-card{position:relative;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--organizer-border-color);border-radius:8px;background:var(--organizer-toolbar-background);color:var(--organizer-color)}#fe-library-grid .fe-library-card:hover{background:var(--organizer-hover-background)}#fe-library-grid .fe-library-card.selected{outline:4px solid #42b8ff;outline-offset:2px;box-shadow:0 0 0 2px rgba(66,184,255,.25),0 0 14px rgba(66,184,255,.65)}#fe-library-grid .fe-library-card.active{outline-color:#73d0ff}.fe-library-card-preview{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:color-mix(in srgb,var(--organizer-toolbar-background) 75%,black);cursor:pointer}.fe-library-card-preview>img{width:100%;height:100%;display:block;object-fit:cover}.fe-library-card-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}.fe-library-card-fallback img{width:48px;height:48px;object-fit:contain}.fe-library-card-body{padding:10px 12px 12px;cursor:default}.fe-library-card-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fe-library-card-date{opacity:.75;font-size:.9em;margin-top:6px}.fe-library-card-liked{position:absolute;z-index:3;top:6px;right:6px;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:color-mix(in srgb,var(--organizer-toolbar-background) 82%,transparent);color:#f5b400;font-size:21px;line-height:30px;opacity:0;cursor:pointer}.fe-library-card:hover .fe-library-card-liked,.fe-library-card-liked.liked{opacity:1}';
+  win.document.documentElement.append(gridStyle);
+  let gridRows=[],selectedCards=new Set(),activeCard=-1,selectionAnchor=-1;
+  const updateGridSelection=()=>{[...grid.children].forEach((card,index)=>{card.classList.toggle('selected',selectedCards.has(index));card.classList.toggle('active',index===activeCard)})};
+  const selectGridCard=(index,extend=false,toggle=false)=>{if(index<0||index>=gridRows.length)return;if(extend&&selectionAnchor>=0){selectedCards.clear();for(let i=Math.min(selectionAnchor,index);i<=Math.max(selectionAnchor,index);i++)selectedCards.add(i)}else if(toggle){selectedCards.has(index)?selectedCards.delete(index):selectedCards.add(index);selectionAnchor=index}else{selectedCards=new Set([index]);selectionAnchor=index}activeCard=index;updateGridSelection();grid.children[index]?.scrollIntoView({block:'nearest',inline:'nearest'});grid.focus()};
+  const selectedGridNodes=()=>[...selectedCards].sort((a,b)=>a-b).map(index=>gridRows[index]).filter(node=>node?.uri);
+  const deleteSelectedGridCards=()=>{const nodes=selectedGridNodes();if(!nodes.length)return;const urls=[...new Set(nodes.map(node=>node.uri))];return Promise.resolve(PlacesUtils.history.remove(urls)).then(()=>{for(const url of urls)delete entries[url];save();renderGrid(gridRows.filter(node=>!urls.includes(node.uri)))}).catch(error=>console.error('Firefox Enhancements: history removal failed',error))};
+  const setSelectedGridLiked=liked=>{const nodes=selectedGridNodes();for(const node of nodes)entries[node.uri]={...entries[node.uri],star:liked};save();renderGrid(gridRows)};
+  const renderGrid=(rows=tree.view?._rows||[])=>{gridRows=Array.from(rows);selectedCards.clear();activeCard=-1;selectionAnchor=-1;grid.replaceChildren();let PageThumbs=null;try{PageThumbs=ChromeUtils.importESModule('resource://gre/modules/PageThumbs.sys.mjs').PageThumbs}catch(_){}for(const [index,node] of gridRows.entries()){const card=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');card.className='fe-library-card';const preview=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');preview.className='fe-library-card-preview';preview.setAttribute('title','Otwórz w nowej karcie');const fallback=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');fallback.className='fe-library-card-fallback';if(node.icon){const favicon=win.document.createElementNS('http://www.w3.org/1999/xhtml','img');favicon.src=node.icon;fallback.append(favicon)}preview.append(fallback);if(PageThumbs&&node.uri){const shot=win.document.createElementNS('http://www.w3.org/1999/xhtml','img');shot.src=PageThumbs.getThumbnailURL(node.uri);shot.addEventListener('load',()=>fallback.hidden=true);shot.addEventListener('error',()=>shot.remove());preview.append(shot)}preview.addEventListener('click',event=>{event.stopPropagation();const browser=Services.wm.getMostRecentWindow('navigator:browser');if(node.uri)browser?.openTrustedLinkIn(node.uri,'tab',{relatedToCurrent:false})});const liked=win.document.createElementNS('http://www.w3.org/1999/xhtml','button');liked.className='fe-library-card-liked'+(entries[node.uri]?.star?' liked':'');liked.textContent=entries[node.uri]?.star?'★':'☆';liked.setAttribute('title','Liked');liked.addEventListener('click',event=>{event.stopPropagation();entries[node.uri]={...entries[node.uri],star:!entries[node.uri]?.star};liked.classList.toggle('liked',!!entries[node.uri].star);liked.textContent=entries[node.uri].star?'★':'☆';save()});const body=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');body.className='fe-library-card-body';const title=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');title.className='fe-library-card-title';title.textContent=node.title||node.uri||'';const date=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');date.className='fe-library-card-date';const closed=entries[node.uri]?.closed;date.textContent=closed?new Date(closed).toLocaleString('pl-PL'):'Brak daty zamknięcia';body.append(title,date);body.addEventListener('click',event=>selectGridCard(index,event.shiftKey,event.ctrlKey));card.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();if(!selectedCards.has(index))selectGridCard(index,false,false);openGridContextMenu(event.screenX,event.screenY,index)});card.append(preview,liked,body);grid.append(card)}};
+  grid.tabIndex=0;
+  const handleGridKey=event=>{if(grid.hidden||!gridRows.length)return;if(event.target?.localName==='input'||event.target?.localName==='textarea')return;const first=grid.querySelector('.fe-library-card'),width=first?.getBoundingClientRect().width||1,gap=parseFloat(win.getComputedStyle(grid).columnGap)||0,columns=Math.max(1,Math.floor((grid.clientWidth+gap)/(width+gap)));let next=activeCard<0?0:activeCard;if(event.key==='ArrowLeft')next--;else if(event.key==='ArrowRight')next++;else if(event.key==='ArrowUp')next-=columns;else if(event.key==='ArrowDown')next+=columns;else if(event.key==='Delete'){if(!selectedCards.size)return;event.preventDefault();event.stopPropagation();deleteSelectedGridCards();return}else return;event.preventDefault();event.stopPropagation();selectGridCard(Math.max(0,Math.min(gridRows.length-1,next)),event.shiftKey,false)};
+  win.addEventListener('keydown',handleGridKey,true);
+  const gridContextMenu=win.document.createXULElement('menupopup');gridContextMenu.id='fe-library-grid-context';
+  const deleteContextItem=win.document.createXULElement('menuitem');deleteContextItem.setAttribute('label','Usuń z historii');deleteContextItem.addEventListener('command',deleteSelectedGridCards);
+  const likedContextItem=win.document.createXULElement('menuitem');let contextLikedAction=true;likedContextItem.addEventListener('command',()=>setSelectedGridLiked(contextLikedAction));
+  gridContextMenu.append(deleteContextItem,likedContextItem);win.document.getElementById('placesPopupset')?.append(gridContextMenu);
+  const openGridContextMenu=(screenX,screenY,index)=>{contextLikedAction=!entries[gridRows[index]?.uri]?.star;likedContextItem.setAttribute('label',contextLikedAction?'Dodaj do Liked':'Usuń z Liked');gridContextMenu.openPopupAtScreen(screenX,screenY,true)};
+  const viewPopup=win.document.getElementById('viewMenuPopup');
+  if(viewPopup&&!win.document.getElementById('fe-library-grid-view')){
+    const menu=win.document.createXULElement('menu');menu.id='fe-library-grid-view';menu.setAttribute('label','Widok siatki');
+    const popup=win.document.createXULElement('menupopup'),items=[];
+    const setGridMode=mode=>{for(const item of items){if(item.getAttribute('value')===mode)item.setAttribute('checked','true');else item.removeAttribute('checked')}const enabled=mode!=='off';tree.hidden=enabled;grid.hidden=!enabled;grid.style.display=enabled?'grid':'none';grid.style.gridTemplateColumns=mode==='small'?'repeat(auto-fill,minmax(130px,1fr))':'repeat(auto-fill,minmax(260px,1fr))';grid.dataset.size=mode;if(enabled)renderGrid()};
+    for(const [value,label] of [['off','Wyłączony'],['large','Duży'],['small','Mały']]){const item=win.document.createXULElement('menuitem');item.setAttribute('type','radio');item.setAttribute('name','fe-library-grid-size');item.setAttribute('value',value);item.setAttribute('label',label);if(value==='off')item.setAttribute('checked','true');item.addEventListener('command',()=>setGridMode(value));items.push(item);popup.append(item)}
+    menu.append(popup);viewPopup.append(menu);
+  }
+  win.__feRenderLibraryGrid=renderGrid;
+  const placesList=win.document.getElementById('placesList');
+  placesList?.addEventListener('select',()=>{
+    const refreshGrid=()=>{if(grid.hidden)return;const view=tree.view;if(view){delete view.__feFilterRows;delete view.__feFilterRoot}const value=win.document.getElementById('fe-library-filter-value')?.value||'';value?win.__feApplyLibraryFilter?.():renderGrid()};
+    win.setTimeout(refreshGrid,0);win.setTimeout(refreshGrid,100);
+  });
   const proto=win.PlacesTreeView.prototype,originalText=proto.getCellText,originalCycle=proto.cycleHeader;
+  const resultDescriptor=Object.getOwnPropertyDescriptor(proto,'result');
+  if(resultDescriptor?.get&&resultDescriptor?.set){Object.defineProperty(proto,'result',{configurable:true,enumerable:resultDescriptor.enumerable,get:resultDescriptor.get,set(value){resultDescriptor.set.call(this,value);if(this._element?.id!=='placeContent')return;win.setTimeout(()=>{delete this.__feFilterRows;delete this.__feFilterRoot;if(grid.hidden)return;const filterValue=win.document.getElementById('fe-library-filter-value')?.value||'';filterValue?win.__feApplyLibraryFilter?.():renderGrid()},0)}})}
   const key=column=>column?.element?.getAttribute('fe-library-column');
   proto.getCellText=function(row,column){
     const field=key(column);if(!field)return originalText.call(this,row,column);
