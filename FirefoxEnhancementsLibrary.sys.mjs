@@ -3,9 +3,13 @@ const {AsyncShutdown}=ChromeUtils.importESModule('resource://gre/modules/AsyncSh
 
 const storePath=PathUtils.join(PathUtils.profileDir,'firefox-enhancements-library.json');
 const columns=[
-  ['closed','Ostatnie zamknięcie karty',260],
+  ['domain','Domena',170],
+  ['path','Ścieżka',240],
+  ['parameters','Parametry',220],
+  ['closed','Ostatnie zamknięcie',260],
   ['lastDuration','Ostatni czas',150],
-  ['totalDuration','Łączny czas',150]
+  ['totalDuration','Łączny czas',150],
+  ['star','Liked',80]
 ];
 let entries=Object.create(null),writes=Promise.resolve(),ready,started=false;
 const sessions=new Map(),libraryWindows=new Set();
@@ -16,6 +20,7 @@ function formatDuration(ms){
   const minutes=Math.floor((seconds%3600)/60),rest=seconds%60;
   return hours?`${hours}:${String(minutes).padStart(2,'0')}:${String(rest).padStart(2,'0')}`:`${minutes}:${String(rest).padStart(2,'0')}`;
 }
+function addressParts(uri){try{const url=new URL(uri);if(!['http:','https:','ftp:'].includes(url.protocol))return null;return {domain:url.hostname.replace(/^www\./i,''),path:url.pathname.replace(/^\//,''),parameters:url.search+url.hash}}catch(_){return null}}
 function refresh(){for(const win of libraryWindows)win.document.getElementById('placeContent')?.invalidate()}
 function save(){writes=writes.catch(()=>{}).then(()=>IOUtils.writeUTF8(storePath,JSON.stringify({version:1,entries}),{tmpPath:storePath+'.tmp'}));refresh()}
 function finish(browser,closed=false,now=Date.now()){
@@ -40,12 +45,18 @@ function installLibrary(win){
   proto.getCellText=function(row,column){
     const field=key(column);if(!field)return originalText.call(this,row,column);
     const entry=entries[this._getNodeForRow(row)?.uri]||{};
+    if(field==='domain'||field==='path'||field==='parameters')return addressParts(this._getNodeForRow(row)?.uri)?.[field]||'';
+    if(field==='star')return entry.star?'★':'';
     return field==='closed'?(entry.closed?new Date(entry.closed).toLocaleString('pl-PL'):''):formatDuration(entry[field]);
   };
+  const originalImage=proto.getImageSrc;proto.getImageSrc=function(row,column){if(key(column)==='domain'){const title=this._findColumnByType(this.COLUMN_TYPE_TITLE);return title?originalImage.call(this,row,title):''}return originalImage.call(this,row,column)};
+  const originalDomainProperties=proto.getCellProperties;proto.getCellProperties=function(row,column){if(key(column)==='domain'){const title=this._findColumnByType(this.COLUMN_TYPE_TITLE);return title?originalDomainProperties.call(this,row,title):''}return originalDomainProperties.call(this,row,column)};
+  const style=win.document.createElementNS('http://www.w3.org/1999/xhtml','style');style.textContent='#placeContent treechildren::-moz-tree-cell-text(fe-library-star){font-size:18px;line-height:1;color:#f5b400;font-weight:bold;}';win.document.documentElement.appendChild(style);
+  const originalProperties=proto.getCellProperties;proto.getCellProperties=function(row,column){const properties=originalProperties.call(this,row,column),field=key(column);return field==='star'?properties+' fe-library-star':properties};
   proto.cycleHeader=function(column){
     const field=key(column);if(!field)return originalCycle.call(this,column);
     const direction=column.element.getAttribute('sortDirection')==='ascending'?'descending':'ascending',factor=direction==='ascending'?1:-1;
-    this._rows=Array.from({length:this.rowCount},(_,i)=>this._getNodeForRow(i)).sort((a,b)=>(((entries[a?.uri]||{})[field]||0)-((entries[b?.uri]||{})[field]||0))*factor);
+    this._rows=Array.from({length:this.rowCount},(_,i)=>this._getNodeForRow(i)).sort((a,b)=>{const av=field==='domain'||field==='path'||field==='parameters'?(addressParts(a?.uri)?.[field]||''):(field==='star'?((entries[a?.uri]||{}).star?1:0):((entries[a?.uri]||{})[field]||0));const bv=field==='domain'||field==='path'||field==='parameters'?(addressParts(b?.uri)?.[field]||''):(field==='star'?((entries[b?.uri]||{}).star?1:0):((entries[b?.uri]||{})[field]||0));return(typeof av==='string'?av.localeCompare(bv,'pl',{numeric:true,sensitivity:'base'}):av-bv)*factor});
     for(const item of headers.querySelectorAll('[sortDirection]'))item.removeAttribute('sortDirection');
     column.element.setAttribute('sortDirection',direction);this._tree.invalidate();
   };
@@ -56,7 +67,7 @@ function installLibrary(win){
     const [field,label,width]=columns[index],id='fe-library-'+field;
     for(const attr of ['width','hidden','ordinal'])try{Services.xulStore.removeValue(win.document.documentURI,id,attr)}catch(_){}
     const column=win.document.createXULElement('treecol');column.id=id;
-    column.setAttribute('fe-library-column',field);column.setAttribute('label',label);column.setAttribute('width',width);column.setAttribute('minwidth','60');
+    column.setAttribute('fe-library-column',field);column.setAttribute('label',label);column.setAttribute('width',width);column.setAttribute('minwidth','60');if(field==='path'||field==='parameters')column.setAttribute('hidden','true');
     headers.append(column);if(index<columns.length-1)headers.append(splitter());
   }
   headers.style.display='none';headers.getBoundingClientRect();headers.style.display='';
@@ -64,6 +75,7 @@ function installLibrary(win){
   [...headers.querySelectorAll('treecol')].forEach((column,index)=>column.setAttribute('ordinal',index));
   headers.getBoundingClientRect();
   tree.invalidate();
+  tree.addEventListener('click',event=>{const cell=tree.getCellAt(event.clientX,event.clientY),field=key(cell.col),anonid=cell.col?.element?.getAttribute('anonid'),url=tree.view._getNodeForRow(cell.row)?.uri;if(cell.row<0||!url)return;if(anonid==='title'){const browser=Services.wm.getMostRecentWindow('navigator:browser');browser?.openTrustedLinkIn(url,'tab',{relatedToCurrent:false});event.preventDefault();event.stopImmediatePropagation();return}if(field!=='star'||!addressParts(url))return;entries[url]={...entries[url],star:!entries[url]?.star};save()},{capture:true});
   libraryWindows.add(win);win.addEventListener('unload',()=>libraryWindows.delete(win),{once:true});ready.then(refresh);
 }
 export function start(){
