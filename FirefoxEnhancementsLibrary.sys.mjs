@@ -84,7 +84,7 @@ function installLibrary(win){
     input.setAttribute('type','text');
     input.setAttribute('placeholder','Wartość');
     input.setAttribute('aria-label','Wartość filtra');
-    input.style.cssText='display:block;box-sizing:border-box;width:360px;height:32px;margin-inline-start:8px;padding:4px 8px;color:var(--organizer-color);background:var(--organizer-content-background);border:1px solid var(--organizer-border-color);border-radius:4px;';
+    input.style.cssText='appearance:none!important;-moz-appearance:none!important;display:block;box-sizing:border-box;width:360px;height:24px!important;min-height:24px!important;max-height:24px!important;line-height:22px!important;margin-inline-start:8px;padding:0 8px!important;color:var(--organizer-color);background:var(--organizer-content-background);border:1px solid var(--organizer-border-color);border-radius:4px;font:inherit;';
     const button=win.document.createXULElement('button');
     button.id='fe-library-filter-button';
     button.setAttribute('label','Filtruj');
