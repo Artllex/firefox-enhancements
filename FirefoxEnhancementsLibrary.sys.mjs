@@ -33,6 +33,12 @@ function parseDuration(text){
   while((match=pattern.exec(value))){matched+=match[0];const amount=Number(match[1]),unit=match[2];seconds+=amount*(unit==='h'||unit.startsWith('godz')?3600:unit==='m'||unit.startsWith('min')?60:1)}
   return matched&&value.replace(pattern,'').trim()===''?seconds*1000:NaN;
 }
+function parseLiked(text){
+  const value=String(text).trim().toLocaleLowerCase('pl-PL');
+  if(['tak','yes','1','liked','★','gwiazdka','oznaczone'].includes(value))return true;
+  if(['nie','no','0','unliked','brak','bez gwiazdki','nieoznaczone'].includes(value))return false;
+  return null;
+}
 function addressParts(uri){try{const url=new URL(uri);if(!['http:','https:','ftp:'].includes(url.protocol))return null;return {domain:url.hostname.replace(/^www\./i,''),path:url.pathname.replace(/^\//,''),parameters:url.search+url.hash}}catch(_){return null}}
 function refresh(){for(const win of libraryWindows)win.document.getElementById('placeContent')?.invalidate()}
 function save(){writes=writes.catch(()=>{}).then(()=>IOUtils.writeUTF8(storePath,JSON.stringify({version:1,entries}),{tmpPath:storePath+'.tmp'}));refresh()}
@@ -105,7 +111,7 @@ function installLibrary(win){
         if(field==='closed')return raw?(entry.closed||NaN):(entry.closed?new Date(entry.closed).toLocaleString('pl-PL'):'');
         if(field==='last')return raw?entry.lastDuration:formatDuration(entry.lastDuration);
         if(field==='total')return raw?entry.totalDuration:formatDuration(entry.totalDuration);
-        if(field==='star')return entry.star?'Liked':'';
+        if(field==='star')return raw?!!entry.star:(entry.star?'Liked':'');
         if(field==='tags')return node?.tags||'';
         if(field==='date')return raw?(node?.time?node.time/1000:NaN):(node?.time?new Date(node.time/1000).toLocaleString('pl-PL'):'');
         if(field==='visitCount')return raw?Number(node?.accessCount):String(node?.accessCount??'');
@@ -116,8 +122,13 @@ function installLibrary(win){
       if(field==='last'||field==='total')expected=parseDuration(query);
       else if(field==='visitCount')expected=Number(query.replace(',','.'));
       else if(field==='closed'||field==='date')expected=Date.parse(query);
+      else if(field==='star')expected=parseLiked(query);
       const matches=node=>{
         const display=String(value(node,field)).toLocaleLowerCase('pl-PL');
+        if(field==='star'&&(operation==='eq'||operation==='ne')){
+          if(expected===null)return false;
+          return operation==='eq'?value(node,field,true)===expected:value(node,field,true)!==expected;
+        }
         if(operation==='contains')return display.includes(normalizedQuery);
         if(operation==='notContains')return !display.includes(normalizedQuery);
         const actual=numericFields.has(field)?Number(value(node,field,true)):display;
@@ -143,9 +154,10 @@ function installLibrary(win){
     input.addEventListener('keydown',event=>{if(event.key==='Enter')filter()});
     select.addEventListener('command',()=>{
       const numeric=['last','total','visitCount','closed','date'].includes(select.value);
+      if(select.value==='star'){operator.value='eq';operator.setAttribute('label','=')}
       if(numeric&&['contains','notContains'].includes(operator.value)){operator.value='ge';operator.setAttribute('label','≥')}
       if(!numeric&&!['contains','notContains','eq','ne'].includes(operator.value)){operator.value='contains';operator.setAttribute('label','zawiera')}
-      input.placeholder=select.value==='last'||select.value==='total'?'np. 3h 40min 10s':select.value==='visitCount'?'Liczba':'Wartość';
+      input.placeholder=select.value==='last'||select.value==='total'?'np. 3h 40min 10s':select.value==='visitCount'?'Liczba':select.value==='star'?'yes / no (★)':'Wartość';
     });
     bar.append(select,operator,input,button);
     contentView.insertBefore(bar,viewsBox);
