@@ -1,8 +1,10 @@
 const {PrivateBrowsingUtils}=ChromeUtils.importESModule('resource://gre/modules/PrivateBrowsingUtils.sys.mjs');
 const {AsyncShutdown}=ChromeUtils.importESModule('resource://gre/modules/AsyncShutdown.sys.mjs');
+const {PageThumbs}=ChromeUtils.importESModule('resource://gre/modules/PageThumbs.sys.mjs');
 
 const storePath=PathUtils.join(PathUtils.profileDir,'firefox-enhancements-library.json');
 const columns=[
+  ['thumbnail','Thumbnail',220],
   ['domain','Domena',170],
   ['path','Ścieżka',240],
   ['parameters','Parametry',220],
@@ -14,6 +16,7 @@ const columns=[
 let entries=Object.create(null),writes=Promise.resolve(),ready,started=false;
 const libraryUiEnabled=true;
 const sessions=new Map(),libraryWindows=new Set();
+const thumbnailCaptures=new WeakMap();
 
 function formatDuration(ms){
   if(!Number.isFinite(ms)) return '';
@@ -49,10 +52,27 @@ function finish(browser,closed=false,now=Date.now()){
   entries[session.url]={...old,lastDuration:duration,totalDuration:(old.totalDuration||0)+duration,...(closed?{closed:now}:{})};save();
 }
 function begin(browser,url,now=Date.now()){finish(browser,false,now);if(/^https?:/.test(url||''))sessions.set(browser,{url,started:now})}
+async function captureThumbnail(browser,url){
+  if(!browser||!/^https?:/.test(url||'')||browser.currentURI?.spec!==url||thumbnailCaptures.get(browser)===url)return;
+  thumbnailCaptures.set(browser,url);
+  try{
+    if(!await PageThumbs.shouldStoreThumbnail(browser)||browser.currentURI?.spec!==url)return;
+    await PageThumbs.captureAndStore(browser);
+    if(browser.currentURI?.spec!==url)return;
+    entries[url]={...entries[url],thumbnail:true};save();
+  }catch(error){console.error('Firefox Enhancements: thumbnail capture failed',error)}
+  finally{if(thumbnailCaptures.get(browser)===url)thumbnailCaptures.delete(browser)}
+}
+function scheduleThumbnailCapture(win,browser,url){
+  for(const delay of [500,1500,3000])win.setTimeout(()=>ready.then(()=>captureThumbnail(browser,url)),delay);
+}
 function installBrowser(win){
   if(win.__feLibraryTracking||PrivateBrowsingUtils.isWindowPrivate(win))return;
   win.__feLibraryTracking=true;ready.then(()=>win.gBrowser.browsers.forEach(b=>begin(b,b.currentURI?.spec)));
-  const progress={onLocationChange(browser,webProgress,_request,location){if(webProgress?.isTopLevel)ready.then(()=>begin(browser,location?.spec))}};
+  const progress={
+    onLocationChange(browser,webProgress,_request,location){if(webProgress?.isTopLevel)ready.then(()=>begin(browser,location?.spec))},
+    onStateChange(browser,webProgress,_request,flags){if(webProgress?.isTopLevel&&(flags&Ci.nsIWebProgressListener.STATE_STOP)){const url=browser.currentURI?.spec;scheduleThumbnailCapture(win,browser,url)}}
+  };
   win.gBrowser.addTabsProgressListener(progress);
   win.gBrowser.tabContainer.addEventListener('TabClose',event=>ready.then(()=>finish(event.target.linkedBrowser,true)));
   win.addEventListener('unload',()=>{for(const browser of win.gBrowser.browsers)finish(browser,true);try{win.gBrowser.removeTabsProgressListener(progress)}catch(_){}},{once:true});
@@ -67,7 +87,7 @@ function installLibraryRowHeight(win){
   const menu=win.document.createXULElement('menu');menu.id='fe-library-row-height-menu';menu.setAttribute('label','Wysokość wierszy');
   const popup=win.document.createXULElement('menupopup'),items=[];
   const setHeight=value=>{tree.style.setProperty('--fe-library-row-height',value+'px');for(const item of items)item.toggleAttribute('checked',item.getAttribute('value')===String(value));tree.invalidate()};
-  for(const [value,label] of [[28,'Standardowa'],[42,'Rozszerzona'],[64,'Duża']]){const item=win.document.createXULElement('menuitem');item.setAttribute('type','radio');item.setAttribute('name','fe-library-row-height');item.setAttribute('value',value);item.setAttribute('label',label);if(value===28)item.setAttribute('checked','true');item.addEventListener('command',()=>setHeight(value));items.push(item);popup.append(item)}
+  for(const [value,label] of [[28,'Standardowa'],[64,'Rozszerzona'],[128,'Duża']]){const item=win.document.createXULElement('menuitem');item.setAttribute('type','radio');item.setAttribute('name','fe-library-row-height');item.setAttribute('value',value);item.setAttribute('label',label);if(value===28)item.setAttribute('checked','true');item.addEventListener('command',()=>setHeight(value));items.push(item);popup.append(item)}
   menu.append(popup);viewPopup.append(menu);
 }
 
@@ -83,12 +103,14 @@ function installLibraryColumns(win){
     if(field==='path'||field==='parameters')column.setAttribute('hidden','true');
     headers.append(splitter(),column);
   }
-  const proto=win.PlacesTreeView.prototype,originalText=proto.getCellText,originalImage=proto.getImageSrc,originalProperties=proto.getCellProperties;
+  const proto=win.PlacesTreeView.prototype,originalText=proto.getCellText,originalImage=proto.getImageSrc,originalProperties=proto.getCellProperties,originalCycle=proto.cycleHeader;
   const fieldFor=column=>column?.element?.getAttribute('fe-library-column');
-  proto.getCellText=function(row,column){const field=fieldFor(column);if(!field)return originalText.call(this,row,column);const node=this._getNodeForRow(row),entry=entries[node?.uri]||{};if(field==='domain'||field==='path'||field==='parameters')return addressParts(node?.uri)?.[field]||'';if(field==='star')return entry.star?'★':'';return field==='closed'?(entry.closed?new Date(entry.closed).toLocaleString('pl-PL'):''):formatDuration(entry[field])};
-  proto.getImageSrc=function(row,column){if(fieldFor(column)==='domain'){const title=this._findColumnByType(this.COLUMN_TYPE_TITLE);return title?originalImage.call(this,row,title):''}return originalImage.call(this,row,column)};
-  proto.getCellProperties=function(row,column){const field=fieldFor(column);if(field==='domain'){const title=this._findColumnByType(this.COLUMN_TYPE_TITLE);return title?originalProperties.call(this,row,title):''}const properties=originalProperties.call(this,row,column);return field==='star'?properties+' fe-library-star':properties};
-  const starStyle=win.document.createElementNS('http://www.w3.org/1999/xhtml','style');starStyle.textContent='#placeContent treechildren::-moz-tree-cell-text(fe-library-star){font-size:18px;line-height:1;color:#f5b400;font-weight:bold;}';win.document.documentElement.append(starStyle);
+  proto.getCellText=function(row,column){const field=fieldFor(column);if(!field)return originalText.call(this,row,column);if(field==='thumbnail')return '';const node=this._getNodeForRow(row),entry=entries[node?.uri]||{};if(field==='domain'||field==='path'||field==='parameters')return addressParts(node?.uri)?.[field]||'';if(field==='star')return entry.star?'★':'';return field==='closed'?(entry.closed?new Date(entry.closed).toLocaleString('pl-PL'):''):formatDuration(entry[field])};
+  proto.getImageSrc=function(row,column){const field=fieldFor(column);if(field==='thumbnail'){const url=this._getNodeForRow(row)?.uri;return entries[url]?.thumbnail?PageThumbs.getThumbnailURL(url):''}if(field==='domain'){const title=this._findColumnByType(this.COLUMN_TYPE_TITLE);return title?originalImage.call(this,row,title):''}return originalImage.call(this,row,column)};
+  proto.getCellProperties=function(row,column){const field=fieldFor(column);if(field==='domain'){const title=this._findColumnByType(this.COLUMN_TYPE_TITLE);return title?originalProperties.call(this,row,title):''}const properties=originalProperties.call(this,row,column);if(field==='star')return properties+' fe-library-star';if(field==='thumbnail')return properties+' fe-library-thumbnail';return properties};
+  const starStyle=win.document.createElementNS('http://www.w3.org/1999/xhtml','style');starStyle.textContent='#placeContent treechildren::-moz-tree-cell-text(fe-library-star){font-size:18px;line-height:1;color:#f5b400;font-weight:bold;}#placeContent treechildren::-moz-tree-image(fe-library-thumbnail){width:auto!important;height:calc(var(--fe-library-row-height,28px) - 2px)!important;max-width:none!important;max-height:none!important;object-fit:contain;}';win.document.documentElement.append(starStyle);
+  const sortValue=(node,field)=>{const uri=node?.uri||'',entry=entries[uri]||{},parts=addressParts(uri)||{};if(field==='domain'||field==='path'||field==='parameters')return parts[field]||'';if(field==='closed')return entry.closed||0;if(field==='lastDuration'||field==='totalDuration')return entry[field]||0;if(field==='star')return entry.star?1:0;if(field==='thumbnail')return entry.thumbnail?1:0;return node?.title||''};
+  proto.cycleHeader=function(column){const field=fieldFor(column);if(!field)return originalCycle.call(this,column);const direction=column.element.getAttribute('sortDirection')==='ascending'?'descending':'ascending',factor=direction==='ascending'?1:-1;this._rows=Array.from({length:this.rowCount},(_,index)=>this._getNodeForRow(index)).map((node,index)=>({node,index})).sort((a,b)=>{const av=sortValue(a.node,field),bv=sortValue(b.node,field);const result=typeof av==='number'&&typeof bv==='number'?av-bv:String(av).localeCompare(String(bv),'pl',{numeric:true,sensitivity:'base'});return (result||a.index-b.index)*factor}).map(item=>item.node);for(const item of headers.querySelectorAll('[sortDirection]'))item.removeAttribute('sortDirection');column.element.setAttribute('sortDirection',direction);this._tree.invalidate()};
   tree.addEventListener('click',event=>{const cell=tree.getCellAt(event.clientX,event.clientY),clickedField=fieldFor(cell.col),anonid=cell.col?.element?.getAttribute('anonid'),url=tree.view?._getNodeForRow(cell.row)?.uri;if(cell.row<0||!url)return;if(anonid==='title'){const browser=Services.wm.getMostRecentWindow('navigator:browser');browser?.openTrustedLinkIn(url,'tab',{relatedToCurrent:false});event.preventDefault();event.stopImmediatePropagation();return}if(clickedField!=='star'||!addressParts(url))return;entries[url]={...entries[url],star:!entries[url]?.star};save()},true);
   tree.addEventListener('dblclick',event=>{const cell=tree.getCellAt(event.clientX,event.clientY),anonid=cell.col?.element?.getAttribute('anonid');if(anonid==='title'||fieldFor(cell.col)==='star'){event.preventDefault();event.stopImmediatePropagation()}},true);
   libraryWindows.add(win);win.addEventListener('unload',()=>libraryWindows.delete(win),{once:true});ready.then(refresh);tree.invalidate();
