@@ -3,6 +3,7 @@ const {AsyncShutdown}=ChromeUtils.importESModule('resource://gre/modules/AsyncSh
 const {PageThumbs}=ChromeUtils.importESModule('resource://gre/modules/PageThumbs.sys.mjs');
 
 const storePath=PathUtils.join(PathUtils.profileDir,'firefox-enhancements-library.json');
+const thumbnailStorePath=PathUtils.join(PathUtils.profileDir,'firefox-enhancements-thumbnails');
 const columns=[
   ['thumbnail','Thumbnail',220],
   ['domain','Domena',170],
@@ -17,6 +18,10 @@ let entries=Object.create(null),writes=Promise.resolve(),ready,started=false;
 const libraryUiEnabled=true;
 const sessions=new Map(),libraryWindows=new Set();
 const thumbnailCaptures=new WeakMap();
+const thumbnailExpirationFilter=callback=>ready.then(
+  ()=>callback(Object.keys(entries).filter(url=>entries[url]?.thumbnail)),
+  ()=>callback([])
+);
 
 function formatDuration(ms){
   if(!Number.isFinite(ms)) return '';
@@ -44,6 +49,21 @@ function parseLiked(text){
   return null;
 }
 function addressParts(uri){try{const url=new URL(uri);if(!['http:','https:','ftp:'].includes(url.protocol))return null;return {domain:url.hostname.replace(/^www\./i,''),path:url.pathname.replace(/^\//,''),parameters:url.search+url.hash}}catch(_){return null}}
+function safeFilePart(value,maxLength){
+  const clean=String(value||'').replace(/[<>:"/\\|?*\u0000-\u001f]/g,' ').replace(/\s+/g,' ').trim().replace(/[. ]+$/,'');
+  return (clean||'bez nazwy').slice(0,maxLength).replace(/[. ]+$/,'')||'bez nazwy';
+}
+function thumbnailFileName(browser,url){
+  const domain=safeFilePart(addressParts(url)?.domain||'strona',70),title=safeFilePart(browser.contentTitle||url,120);
+  const id=PathUtils.filename(PageThumbs.getThumbnailPath(url)).replace(/\.png$/i,'').slice(0,12);
+  return `${domain} - ${title} - ${id}.png`;
+}
+function thumbnailPath(url){const name=entries[url]?.thumbnailFile;return name?PathUtils.join(thumbnailStorePath,name):PageThumbs.getThumbnailPath(url)}
+function thumbnailURL(url){
+  if(!entries[url]?.thumbnailFile)return PageThumbs.getThumbnailURL(url);
+  const file=Cc['@mozilla.org/file/local;1'].createInstance(Ci.nsIFile);file.initWithPath(thumbnailPath(url));
+  return Services.io.newFileURI(file).spec+'?v='+(entries[url]?.thumbnailUpdated||0);
+}
 function refresh(){for(const win of libraryWindows)win.document.getElementById('placeContent')?.invalidate()}
 function save(){writes=writes.catch(()=>{}).then(()=>IOUtils.writeUTF8(storePath,JSON.stringify({version:1,entries}),{tmpPath:storePath+'.tmp'}));refresh()}
 function finish(browser,closed=false,now=Date.now()){
@@ -56,10 +76,31 @@ async function captureThumbnail(browser,url){
   if(!browser||!/^https?:/.test(url||'')||browser.currentURI?.spec!==url||thumbnailCaptures.get(browser)===url)return;
   thumbnailCaptures.set(browser,url);
   try{
-    if(!await PageThumbs.shouldStoreThumbnail(browser)||browser.currentURI?.spec!==url)return;
-    await PageThumbs.captureAndStore(browser);
+    // installBrowser is never attached to private windows.  Do not apply
+    // PageThumbs.shouldStoreThumbnail here: it rejects no-store responses,
+    // which prevents captures on sites such as Facebook and YouTube.
     if(browser.currentURI?.spec!==url)return;
-    entries[url]={...entries[url],thumbnail:true};save();
+    const actor=browser.browsingContext?.currentWindowGlobal?.getActor('Thumbnails');
+    const info=await actor?.sendQuery('Browser:Thumbnail:ContentInfo',{isImage:false,targetWidth:1024,backgroundColor:'#fff'});
+    if(!info?.width||!info?.height)throw new Error('THUMBNAIL_ZERO_DIMENSION');
+    // drawSnapshot can be backed by device pixels, while its requested rectangle
+    // is in CSS pixels.  Never copy it 1:1 into a CSS-sized canvas: that crops
+    // the right edge at a non-100% display scale.  The 5-argument drawImage
+    // below explicitly fits the complete snapshot into the target canvas.
+    const targetWidth=1024,targetHeight=Math.max(1,Math.round(targetWidth*info.height/info.width));
+    const snapshot=await browser.drawSnapshot(0,0,info.width,info.height,1,'#fff',true);
+    if(!snapshot)throw new Error('THUMBNAIL_CAPTURE_FAILED');
+    const canvas=browser.ownerDocument.createElementNS('http://www.w3.org/1999/xhtml','canvas');
+    canvas.width=targetWidth;canvas.height=targetHeight;
+    const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,targetWidth,targetHeight);context.drawImage(snapshot,0,0,targetWidth,targetHeight);
+    const blob=await new Promise((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('THUMBNAIL_ENCODE_FAILED')),PageThumbs.contentType));
+    if(!blob||browser.currentURI?.spec!==url)return;
+    await IOUtils.makeDirectory(thumbnailStorePath,{ignoreExisting:true});
+    const previous=entries[url]?.thumbnailFile,name=thumbnailFileName(browser,url),path=PathUtils.join(thumbnailStorePath,name);
+    await IOUtils.write(path,new Uint8Array(await blob.arrayBuffer()),{tmpPath:path+'.tmp'});
+    if(previous&&previous!==name){const oldPath=PathUtils.join(thumbnailStorePath,previous);if(await IOUtils.exists(oldPath))await IOUtils.remove(oldPath)}
+    if(browser.currentURI?.spec!==url)return;
+    entries[url]={...entries[url],thumbnail:true,thumbnailFile:name,thumbnailUpdated:Date.now()};save();
   }catch(error){console.error('Firefox Enhancements: thumbnail capture failed',error)}
   finally{if(thumbnailCaptures.get(browser)===url)thumbnailCaptures.delete(browser)}
 }
@@ -70,7 +111,7 @@ function installBrowser(win){
   if(win.__feLibraryTracking||PrivateBrowsingUtils.isWindowPrivate(win))return;
   win.__feLibraryTracking=true;ready.then(()=>win.gBrowser.browsers.forEach(b=>begin(b,b.currentURI?.spec)));
   const progress={
-    onLocationChange(browser,webProgress,_request,location){if(webProgress?.isTopLevel)ready.then(()=>begin(browser,location?.spec))},
+    onLocationChange(browser,webProgress,_request,location){if(webProgress?.isTopLevel){const url=location?.spec;ready.then(()=>begin(browser,url));scheduleThumbnailCapture(win,browser,url)}},
     onStateChange(browser,webProgress,_request,flags){if(webProgress?.isTopLevel&&(flags&Ci.nsIWebProgressListener.STATE_STOP)){const url=browser.currentURI?.spec;scheduleThumbnailCapture(win,browser,url)}}
   };
   win.gBrowser.addTabsProgressListener(progress);
@@ -106,12 +147,12 @@ function installLibraryColumns(win){
   const proto=win.PlacesTreeView.prototype,originalText=proto.getCellText,originalImage=proto.getImageSrc,originalProperties=proto.getCellProperties,originalCycle=proto.cycleHeader;
   const fieldFor=column=>column?.element?.getAttribute('fe-library-column');
   proto.getCellText=function(row,column){const field=fieldFor(column);if(!field)return originalText.call(this,row,column);if(field==='thumbnail')return '';const node=this._getNodeForRow(row),entry=entries[node?.uri]||{};if(field==='domain'||field==='path'||field==='parameters')return addressParts(node?.uri)?.[field]||'';if(field==='star')return entry.star?'★':'';return field==='closed'?(entry.closed?new Date(entry.closed).toLocaleString('pl-PL'):''):formatDuration(entry[field])};
-  proto.getImageSrc=function(row,column){const field=fieldFor(column);if(field==='thumbnail'){const url=this._getNodeForRow(row)?.uri;return entries[url]?.thumbnail?PageThumbs.getThumbnailURL(url):''}if(field==='domain'){const title=this._findColumnByType(this.COLUMN_TYPE_TITLE);return title?originalImage.call(this,row,title):''}return originalImage.call(this,row,column)};
+  proto.getImageSrc=function(row,column){const field=fieldFor(column);if(field==='thumbnail'){const url=this._getNodeForRow(row)?.uri;return entries[url]?.thumbnail?thumbnailURL(url):''}if(field==='domain'){const title=this._findColumnByType(this.COLUMN_TYPE_TITLE);return title?originalImage.call(this,row,title):''}return originalImage.call(this,row,column)};
   proto.getCellProperties=function(row,column){const field=fieldFor(column);if(field==='domain'){const title=this._findColumnByType(this.COLUMN_TYPE_TITLE);return title?originalProperties.call(this,row,title):''}const properties=originalProperties.call(this,row,column);if(field==='star')return properties+' fe-library-star';if(field==='thumbnail')return properties+' fe-library-thumbnail';return properties};
   const starStyle=win.document.createElementNS('http://www.w3.org/1999/xhtml','style');starStyle.textContent='#placeContent treechildren::-moz-tree-cell-text(fe-library-star){font-size:18px;line-height:1;color:#f5b400;font-weight:bold;}#placeContent treechildren::-moz-tree-image(fe-library-thumbnail){width:auto!important;height:calc(var(--fe-library-row-height,28px) - 2px)!important;max-width:none!important;max-height:none!important;object-fit:contain;}';win.document.documentElement.append(starStyle);
   const sortValue=(node,field)=>{const uri=node?.uri||'',entry=entries[uri]||{},parts=addressParts(uri)||{};if(field==='domain'||field==='path'||field==='parameters')return parts[field]||'';if(field==='closed')return entry.closed||0;if(field==='lastDuration'||field==='totalDuration')return entry[field]||0;if(field==='star')return entry.star?1:0;if(field==='thumbnail')return entry.thumbnail?1:0;return node?.title||''};
   proto.cycleHeader=function(column){const field=fieldFor(column);if(!field)return originalCycle.call(this,column);const direction=column.element.getAttribute('sortDirection')==='ascending'?'descending':'ascending',factor=direction==='ascending'?1:-1;this._rows=Array.from({length:this.rowCount},(_,index)=>this._getNodeForRow(index)).map((node,index)=>({node,index})).sort((a,b)=>{const av=sortValue(a.node,field),bv=sortValue(b.node,field);const result=typeof av==='number'&&typeof bv==='number'?av-bv:String(av).localeCompare(String(bv),'pl',{numeric:true,sensitivity:'base'});return (result||a.index-b.index)*factor}).map(item=>item.node);for(const item of headers.querySelectorAll('[sortDirection]'))item.removeAttribute('sortDirection');column.element.setAttribute('sortDirection',direction);this._tree.invalidate()};
-  tree.addEventListener('click',event=>{const cell=tree.getCellAt(event.clientX,event.clientY),clickedField=fieldFor(cell.col),anonid=cell.col?.element?.getAttribute('anonid'),url=tree.view?._getNodeForRow(cell.row)?.uri;if(cell.row<0||!url)return;if(anonid==='title'){const browser=Services.wm.getMostRecentWindow('navigator:browser');browser?.openTrustedLinkIn(url,'tab',{relatedToCurrent:false});event.preventDefault();event.stopImmediatePropagation();return}if(clickedField==='thumbnail'){event.preventDefault();event.stopImmediatePropagation();if(event.detail>1)return;const path=PageThumbs.getThumbnailPath(url);IOUtils.exists(path).then(exists=>{if(!exists)return;const file=Cc['@mozilla.org/file/local;1'].createInstance(Ci.nsIFile);file.initWithPath(path);file.reveal()}).catch(error=>console.error('Firefox Enhancements: revealing thumbnail failed',error));return}if(clickedField!=='star'||!addressParts(url))return;entries[url]={...entries[url],star:!entries[url]?.star};save()},true);
+  tree.addEventListener('click',event=>{const cell=tree.getCellAt(event.clientX,event.clientY),clickedField=fieldFor(cell.col),anonid=cell.col?.element?.getAttribute('anonid'),url=tree.view?._getNodeForRow(cell.row)?.uri;if(cell.row<0||!url)return;if(anonid==='title'){const browser=Services.wm.getMostRecentWindow('navigator:browser');browser?.openTrustedLinkIn(url,'tab',{relatedToCurrent:false});event.preventDefault();event.stopImmediatePropagation();return}if(clickedField==='thumbnail'){event.preventDefault();event.stopImmediatePropagation();if(event.detail>1)return;const path=thumbnailPath(url);IOUtils.exists(path).then(exists=>{if(!exists)return;const file=Cc['@mozilla.org/file/local;1'].createInstance(Ci.nsIFile);file.initWithPath(path);file.reveal()}).catch(error=>console.error('Firefox Enhancements: revealing thumbnail failed',error));return}if(clickedField!=='star'||!addressParts(url))return;entries[url]={...entries[url],star:!entries[url]?.star};save()},true);
   tree.addEventListener('dblclick',event=>{const cell=tree.getCellAt(event.clientX,event.clientY),anonid=cell.col?.element?.getAttribute('anonid'),field=fieldFor(cell.col);if(anonid==='title'||field==='star'||field==='thumbnail'){event.preventDefault();event.stopImmediatePropagation()}},true);
   libraryWindows.add(win);win.addEventListener('unload',()=>libraryWindows.delete(win),{once:true});ready.then(refresh);tree.invalidate();
 }
@@ -282,7 +323,7 @@ function installLibrary(win){
   const selectedGridNodes=()=>[...selectedCards].sort((a,b)=>a-b).map(index=>gridRows[index]).filter(node=>node?.uri);
   const deleteSelectedGridCards=()=>{const nodes=selectedGridNodes();if(!nodes.length)return;const urls=[...new Set(nodes.map(node=>node.uri))];return Promise.resolve(PlacesUtils.history.remove(urls)).then(()=>{for(const url of urls)delete entries[url];save();renderGrid(gridRows.filter(node=>!urls.includes(node.uri)))}).catch(error=>console.error('Firefox Enhancements: history removal failed',error))};
   const setSelectedGridLiked=liked=>{const nodes=selectedGridNodes();for(const node of nodes)entries[node.uri]={...entries[node.uri],star:liked};save();renderGrid(gridRows)};
-  const renderGrid=(rows=tree.view?._rows||[])=>{gridRows=Array.from(rows);selectedCards.clear();activeCard=-1;selectionAnchor=-1;grid.replaceChildren();let PageThumbs=null;try{PageThumbs=ChromeUtils.importESModule('resource://gre/modules/PageThumbs.sys.mjs').PageThumbs}catch(_){}for(const [index,node] of gridRows.entries()){const card=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');card.className='fe-library-card';const preview=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');preview.className='fe-library-card-preview';preview.setAttribute('title','Otwórz w nowej karcie');const fallback=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');fallback.className='fe-library-card-fallback';if(node.icon){const favicon=win.document.createElementNS('http://www.w3.org/1999/xhtml','img');favicon.src=node.icon;fallback.append(favicon)}preview.append(fallback);if(PageThumbs&&node.uri){const shot=win.document.createElementNS('http://www.w3.org/1999/xhtml','img');shot.src=PageThumbs.getThumbnailURL(node.uri);shot.addEventListener('load',()=>fallback.hidden=true);shot.addEventListener('error',()=>shot.remove());preview.append(shot)}preview.addEventListener('click',event=>{event.stopPropagation();const browser=Services.wm.getMostRecentWindow('navigator:browser');if(node.uri)browser?.openTrustedLinkIn(node.uri,'tab',{relatedToCurrent:false})});const liked=win.document.createElementNS('http://www.w3.org/1999/xhtml','button');liked.className='fe-library-card-liked'+(entries[node.uri]?.star?' liked':'');liked.textContent=entries[node.uri]?.star?'★':'☆';liked.setAttribute('title','Liked');liked.addEventListener('click',event=>{event.stopPropagation();entries[node.uri]={...entries[node.uri],star:!entries[node.uri]?.star};liked.classList.toggle('liked',!!entries[node.uri].star);liked.textContent=entries[node.uri].star?'★':'☆';save()});const body=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');body.className='fe-library-card-body';const title=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');title.className='fe-library-card-title';title.textContent=node.title||node.uri||'';const date=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');date.className='fe-library-card-date';const closed=entries[node.uri]?.closed;date.textContent=closed?new Date(closed).toLocaleString('pl-PL'):'Brak daty zamknięcia';body.append(title,date);body.addEventListener('click',event=>selectGridCard(index,event.shiftKey,event.ctrlKey));card.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();if(!selectedCards.has(index))selectGridCard(index,false,false);openGridContextMenu(event.screenX,event.screenY,index)});card.append(preview,liked,body);grid.append(card)}};
+  const renderGrid=(rows=tree.view?._rows||[])=>{gridRows=Array.from(rows);selectedCards.clear();activeCard=-1;selectionAnchor=-1;grid.replaceChildren();for(const [index,node] of gridRows.entries()){const card=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');card.className='fe-library-card';const preview=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');preview.className='fe-library-card-preview';preview.setAttribute('title','Otwórz w nowej karcie');const fallback=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');fallback.className='fe-library-card-fallback';if(node.icon){const favicon=win.document.createElementNS('http://www.w3.org/1999/xhtml','img');favicon.src=node.icon;fallback.append(favicon)}preview.append(fallback);if(node.uri&&entries[node.uri]?.thumbnail){const shot=win.document.createElementNS('http://www.w3.org/1999/xhtml','img');shot.src=thumbnailURL(node.uri);shot.addEventListener('load',()=>fallback.hidden=true);shot.addEventListener('error',()=>shot.remove());preview.append(shot)}preview.addEventListener('click',event=>{event.stopPropagation();const browser=Services.wm.getMostRecentWindow('navigator:browser');if(node.uri)browser?.openTrustedLinkIn(node.uri,'tab',{relatedToCurrent:false})});const liked=win.document.createElementNS('http://www.w3.org/1999/xhtml','button');liked.className='fe-library-card-liked'+(entries[node.uri]?.star?' liked':'');liked.textContent=entries[node.uri]?.star?'★':'☆';liked.setAttribute('title','Liked');liked.addEventListener('click',event=>{event.stopPropagation();entries[node.uri]={...entries[node.uri],star:!entries[node.uri]?.star};liked.classList.toggle('liked',!!entries[node.uri].star);liked.textContent=entries[node.uri].star?'★':'☆';save()});const body=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');body.className='fe-library-card-body';const title=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');title.className='fe-library-card-title';title.textContent=node.title||node.uri||'';const date=win.document.createElementNS('http://www.w3.org/1999/xhtml','div');date.className='fe-library-card-date';const closed=entries[node.uri]?.closed;date.textContent=closed?new Date(closed).toLocaleString('pl-PL'):'Brak daty zamknięcia';body.append(title,date);body.addEventListener('click',event=>selectGridCard(index,event.shiftKey,event.ctrlKey));card.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();if(!selectedCards.has(index))selectGridCard(index,false,false);openGridContextMenu(event.screenX,event.screenY,index)});card.append(preview,liked,body);grid.append(card)}};
   grid.tabIndex=0;
   const handleGridKey=event=>{if(grid.hidden||!gridRows.length)return;if(event.target?.localName==='input'||event.target?.localName==='textarea')return;const first=grid.querySelector('.fe-library-card'),width=first?.getBoundingClientRect().width||1,gap=parseFloat(win.getComputedStyle(grid).columnGap)||0,columns=Math.max(1,Math.floor((grid.clientWidth+gap)/(width+gap)));let next=activeCard<0?0:activeCard;if(event.key==='ArrowLeft')next--;else if(event.key==='ArrowRight')next++;else if(event.key==='ArrowUp')next-=columns;else if(event.key==='ArrowDown')next+=columns;else if(event.key==='Delete'){if(!selectedCards.size)return;event.preventDefault();event.stopPropagation();deleteSelectedGridCards();return}else return;event.preventDefault();event.stopPropagation();selectGridCard(Math.max(0,Math.min(gridRows.length-1,next)),event.shiftKey,false)};
   win.addEventListener('keydown',handleGridKey,true);
@@ -348,6 +389,7 @@ function installLibrary(win){
 export function start(){
   if(started)return;started=true;
   ready=IOUtils.exists(storePath).then(async exists=>{if(exists)entries=(await IOUtils.readJSON(storePath)).entries||Object.create(null)});
+  PageThumbs.addExpirationFilter(thumbnailExpirationFilter);
   AsyncShutdown.profileBeforeChange.addBlocker('Firefox Enhancements timing',async()=>{for(const browser of sessions.keys())finish(browser,true);await writes});
   const attach=win=>{try{if(win.document?.documentElement?.getAttribute('windowtype')==='Places:Organizer')installLibrary(win);if(win.gBrowser)installBrowser(win)}catch(error){console.error(error)}};
   Services.obs.addObserver({observe:win=>win.addEventListener('load',()=>attach(win),{once:true})},'domwindowopened');
