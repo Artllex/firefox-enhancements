@@ -1,4 +1,4 @@
-#define Version "0.1.52"
+#define Version "0.1.53"
 [Setup]
 AppId=Artllex.FirefoxEnhancements
 AppName=Firefox Enhancements
